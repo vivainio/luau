@@ -16,6 +16,8 @@
 #define luai_numlt(a, b) ((a) < (b))
 #define luai_numle(a, b) ((a) <= (b))
 #define luai_inteq(a, b) ((a) == (b))
+// decimals are always stored normalized (no trailing zeros in the mantissa, zero has exponent 0)
+#define luai_deceq(m1, e1, m2, e2) ((m1) == (m2) && (e1) == (e2))
 
 inline bool luai_veceq(const float* a, const float* b)
 {
@@ -126,9 +128,11 @@ inline double luai_lerpd(double a, double b, double t)
 
 #define LUAI_MAXNUM2STR 48
 #define LUAI_MAXINT2STR 30
+#define LUAI_MAXDEC2STR 300
 
 LUAI_FUNC char* luai_num2str(char* buf, double n);
 LUAI_FUNC char* luai_int2str(char* buf, int64_t n);
+LUAI_FUNC char* luai_dec2str(char* buf, int64_t mantissa, int exponent);
 
 #define luai_str2num(s, p) strtod((s), (p))
 #define luai_str2long(s, p, base) strtoll((s), (p), base)

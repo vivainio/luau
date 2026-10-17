@@ -518,6 +518,7 @@ int luaH_rawfind(LuaTable* t, int startpos, StkId value)
     switch (ttype(value))
     {
     case LUA_TNIL:
+    case LUA_TDECIMAL: // not supported by table.find yet
         break;
     case LUA_TBOOLEAN:
         index = rawfindarray(t, startpos, bvalue(value), LUA_TBOOLEAN);
@@ -1404,6 +1405,8 @@ const TValue* luaH_get(LuaTable* t, const TValue* key)
         {
         case LUA_TNIL:
             return luaO_nilobject;
+        case LUA_TDECIMAL: // decimals cannot be table keys
+            return luaO_nilobject;
         case LUA_TBOOLEAN:
             return chainsearchtagged<LUA_TBOOLEAN>(t, bvalue(key), LUA_TBOOLEAN);
         case LUA_TLIGHTUSERDATA:
@@ -1434,6 +1437,8 @@ const TValue* luaH_get(LuaTable* t, const TValue* key)
         {
         case LUA_TNIL:
             return luaO_nilobject;
+        case LUA_TDECIMAL: // decimals cannot be table keys
+            return luaO_nilobject;
         case LUA_TBOOLEAN:
             return chainsearchtagged_DEPRECATED<LUA_TBOOLEAN>(t, bvalue(key), LUA_TBOOLEAN);
         case LUA_TLIGHTUSERDATA:
@@ -1463,6 +1468,8 @@ const TValue* luaH_get(LuaTable* t, const TValue* key)
         switch (ttype(key))
         {
         case LUA_TNIL:
+            return luaO_nilobject;
+        case LUA_TDECIMAL: // decimals cannot be table keys
             return luaO_nilobject;
         case LUA_TSTRING:
             return luaH_getstr(t, tsvalue(key));
@@ -1511,6 +1518,9 @@ TValue* luaH_newkey(lua_State* L, LuaTable* t, const TValue* key)
         case LUA_TNIL:
             luaG_runerror(L, "table index is nil");
             break;
+        case LUA_TDECIMAL:
+            luaG_runerror(L, "table index is a decimal");
+            break;
         case LUA_TBOOLEAN:
             return newkeytagged<LUA_TBOOLEAN, false>(L, t, key, bvalue(key), -1);
         case LUA_TLIGHTUSERDATA:
@@ -1546,6 +1556,8 @@ TValue* luaH_newkey(lua_State* L, LuaTable* t, const TValue* key)
     {
         if (ttisnil(key))
             luaG_runerror(L, "table index is nil");
+        else if (ttisdecimal(key))
+            luaG_runerror(L, "table index is a decimal");
         else if (ttisnumber(key) && luai_numisnan(nvalue(key)))
             luaG_runerror(L, "table index is NaN");
         else if (ttisvector(key) && luai_vecisnan(vvalue(key)))

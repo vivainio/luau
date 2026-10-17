@@ -66,6 +66,7 @@ typedef struct lua_TValue
 #define ttisnil(o) (ttype(o) == LUA_TNIL)
 #define ttisnumber(o) (ttype(o) == LUA_TNUMBER)
 #define ttisinteger(o) (ttype(o) == LUA_TINTEGER)
+#define ttisdecimal(o) (ttype(o) == LUA_TDECIMAL)
 #define ttisstring(o) (ttype(o) == LUA_TSTRING)
 #define ttistable(o) (ttype(o) == LUA_TTABLE)
 #define ttisfunction(o) (ttype(o) == LUA_TFUNCTION)
@@ -85,6 +86,8 @@ typedef struct lua_TValue
 #define pvalue(o) check_exp(ttislightuserdata(o), (o)->value.p)
 #define nvalue(o) check_exp(ttisnumber(o), (o)->value.n)
 #define lvalue(o) check_exp(ttisinteger(o), (o)->value.l)
+#define decmantissa(o) check_exp(ttisdecimal(o), (o)->value.l)
+#define decexponent(o) check_exp(ttisdecimal(o), (o)->extra[0])
 #define vvalue(o) check_exp(ttisvector(o), condvectordouble((o)->value.gc->vec.v, (o)->value.v))
 #define tsvalue(o) check_exp(ttisstring(o), &(o)->value.gc->ts)
 #define uvalue(o) check_exp(ttisuserdata(o), &(o)->value.gc->u)
@@ -126,6 +129,14 @@ typedef struct lua_TValue
         TValue* i_o = (obj); \
         i_o->value.l = (x); \
         i_o->tt = LUA_TINTEGER; \
+    }
+
+#define setdecvalue(obj, m, e) \
+    { \
+        TValue* i_o = (obj); \
+        i_o->value.l = (m); \
+        i_o->extra[0] = (e); \
+        i_o->tt = LUA_TDECIMAL; \
     }
 
 #if LUA_VECTOR_DOUBLE == 1

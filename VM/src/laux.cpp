@@ -565,6 +565,16 @@ void luaL_addvalueany(luaL_Strbuf* B, int idx)
         luaL_addlstring(B, s, e - s);
         break;
     }
+    case LUA_TDECIMAL:
+    {
+        int64_t m;
+        int e;
+        lua_todecimal(L, idx, &m, &e);
+        char s[LUAI_MAXDEC2STR];
+        char* end = luai_dec2str(s, m, e);
+        luaL_addlstring(B, s, end - s);
+        break;
+    }
     default:
     {
         size_t len;
@@ -662,6 +672,16 @@ const char* luaL_tolstring(lua_State* L, int idx, size_t* len)
         char s[LUAI_MAXINT2STR];
         char* e = luai_int2str(s, l);
         lua_pushlstring(L, s, e - s);
+        break;
+    }
+    case LUA_TDECIMAL:
+    {
+        int64_t m;
+        int e;
+        lua_todecimal(L, idx, &m, &e);
+        char s[LUAI_MAXDEC2STR];
+        char* end = luai_dec2str(s, m, e);
+        lua_pushlstring(L, s, end - s);
         break;
     }
     default:

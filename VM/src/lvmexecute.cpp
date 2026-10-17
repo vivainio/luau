@@ -1457,6 +1457,11 @@ reentry:
                         VM_ASSERT_PC(pc);
                         VM_NEXT();
 
+                    case LUA_TDECIMAL:
+                        pc += luai_deceq(decmantissa(ra), decexponent(ra), decmantissa(rb), decexponent(rb)) ? LUAU_INSN_D(insn) : 1;
+                        VM_ASSERT_PC(pc);
+                        VM_NEXT();
+
                     default:
                         LUAU_ASSERT(!"Unknown value type");
                         LUAU_UNREACHABLE(); // improves switch() codegen by eliding opcode bounds checks
@@ -1587,6 +1592,11 @@ reentry:
 
                     case LUA_TINTEGER:
                         pc += lvalue(ra) != lvalue(rb) ? LUAU_INSN_D(insn) : 1;
+                        VM_ASSERT_PC(pc);
+                        VM_NEXT();
+
+                    case LUA_TDECIMAL:
+                        pc += !luai_deceq(decmantissa(ra), decexponent(ra), decmantissa(rb), decexponent(rb)) ? LUAU_INSN_D(insn) : 1;
                         VM_ASSERT_PC(pc);
                         VM_NEXT();
 

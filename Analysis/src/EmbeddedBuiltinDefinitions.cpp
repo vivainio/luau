@@ -481,6 +481,28 @@ declare integer: {
 
 )BUILTIN_SRC";
 
+// TODO: `decimal` is an opaque extern type for now; it should become a primitive type like `integer`
+static const char* const kBuiltinDefinitionDecimalSrc = R"BUILTIN_SRC(
+
+declare extern type decimal with
+end
+
+declare decimal: {
+    create: @checked (x: number | string | decimal) -> decimal?,
+    fromstring: @checked (str: string) -> decimal?,
+    tostring: @checked (x: decimal) -> string,
+    tonumber: @checked (x: decimal) -> number,
+    neg: @checked (x: decimal) -> decimal,
+    add: @checked (x: decimal, y: decimal) -> decimal,
+    sub: @checked (x: decimal, y: decimal) -> decimal,
+    mul: @checked (x: decimal, y: decimal) -> decimal,
+    round: @checked (x: decimal, places: number, mode: string?) -> decimal,
+    lt: @checked (x: decimal, y: decimal) -> boolean,
+    le: @checked (x: decimal, y: decimal) -> boolean,
+}
+
+)BUILTIN_SRC";
+
 static const char* kBuiltinDefinitionClassSrc = R"CLASS_SRC(
 declare class: {
     isinstance: @checked (o: unknown, c: class) -> boolean,
@@ -518,6 +540,8 @@ std::string getBuiltinDefinitionSource()
     {
         result += kBuiltinDefinitionIntegerSrc;
     }
+
+    result += kBuiltinDefinitionDecimalSrc;
 
     if (FFlag::DebugLuauUserDefinedClasses && FFlag::LuauAllowGlobalDeclarationToBeCalledClass)
     {

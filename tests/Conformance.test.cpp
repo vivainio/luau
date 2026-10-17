@@ -1307,6 +1307,11 @@ TEST_CASE("Math")
     runConformance("math.luau");
 }
 
+TEST_CASE("Decimals")
+{
+    runConformance("decimal.luau");
+}
+
 TEST_CASE("Integers")
 {
     ScopedFastFlag ncgBufferInteger{FFlag::LuauCodegenBufferInteger, true};
