@@ -4012,11 +4012,11 @@ static ConstantNumberParseResult parseInteger64(int64_t& result, const char* dat
     return ConstantNumberParseResult::Ok;
 }
 
-// parses a decimal literal body (without the trailing 'd'): digits[.digits][(e|E)[+-]digits]; the result must be exactly representable
+// parses a decimal literal body (without the trailing 'd'): digits[.digits][(e|E)[+-]digits]
+// the result is exact and keeps its scale (1.50d has scale 2); the exponent is the negated scale and is in [-28, 0]
 static ConstantNumberParseResult parseDecimal(int64_t& mantissa, int& exponent, const char* data)
 {
-    const int kMaxExp = 100;
-    const int kMinExp = -100;
+    const int kMaxScale = 28;
 
     uint64_t m = 0;
     long e = 0;
@@ -4072,16 +4072,17 @@ static ConstantNumberParseResult parseDecimal(int64_t& mantissa, int& exponent, 
     if (*p != 0)
         return ConstantNumberParseResult::Malformed;
 
-    if (m == 0)
-        e = 0;
-
-    while (m != 0 && m % 10 == 0 && e < kMaxExp)
+    // a positive exponent is an integer that is written in scientific notation; expand it
+    while (e > 0)
     {
-        m /= 10;
-        e++;
+        if (m > uint64_t(INT64_MAX) / 10)
+            return ConstantNumberParseResult::IntOverflow;
+
+        m *= 10;
+        e--;
     }
 
-    if (e > kMaxExp || e < kMinExp)
+    if (e < -kMaxScale)
         return ConstantNumberParseResult::IntOverflow;
 
     mantissa = int64_t(m);

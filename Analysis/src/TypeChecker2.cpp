@@ -2966,9 +2966,14 @@ TypeId TypeChecker2::visit(AstExprBinary* expr, AstNode* overrideKey)
 
     NormalizationResult typesHaveIntersection = normalizer.isIntersectionInhabited(leftType, rightType);
 
+    // decimals can be ordered against integers (but not numbers), even though the two types have no overlap
+    const bool isDecimalIntegerOrdering = isComparison && !isEquality &&
+                                          ((isDecimal(leftType) && (isDecimal(rightType) || isInteger(rightType))) ||
+                                           (isInteger(leftType) && isDecimal(rightType)));
+
     if (isEquality || isComparison)
     {
-        if (!isOkToCompare(normalizer, typesHaveIntersection, normLeft, normRight))
+        if (!isDecimalIntegerOrdering && !isOkToCompare(normalizer, typesHaveIntersection, normLeft, normRight))
         {
             reportError(CannotCompareUnrelatedTypes{leftType, rightType, expr->op}, expr->location);
             return builtinTypes->errorType;
@@ -3018,7 +3023,7 @@ TypeId TypeChecker2::visit(AstExprBinary* expr, AstNode* overrideKey)
         // TODO: Maybe add more checks here (e.g. for functions, extern typeArguments, etc)
         if (!(get<TableType>(leftType) || get<TableType>(rightType)))
             if (!leftMt.has_value() || !rightMt.has_value())
-                matches = matches || typesHaveIntersection != NormalizationResult::False;
+                matches = matches || typesHaveIntersection != NormalizationResult::False || isDecimalIntegerOrdering;
 
         if (!matches && isComparison)
         {

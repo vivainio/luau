@@ -7,6 +7,8 @@
 
 #include "doctest.h"
 
+LUAU_FASTFLAG(LuauIntegerType2)
+
 using namespace Luau;
 
 TEST_SUITE_BEGIN("TypeInferPrimitives");
@@ -219,6 +221,86 @@ TEST_CASE_FIXTURE(BuiltinsFixture, "decimal_library_functions")
 
     LUAU_REQUIRE_ERROR_COUNT(1, result);
     CHECK_EQ("decimal?", toString(requireType("a")));
+}
+
+TEST_CASE_FIXTURE(BuiltinsFixture, "decimal_division_and_remainder")
+{
+    CheckResult result = check(R"(
+        local a: decimal = 7.5d
+        local b: decimal = 2d
+        local q = a / b
+        local r = a % b
+    )");
+
+    LUAU_REQUIRE_NO_ERRORS(result);
+    CHECK_EQ(getBuiltins()->decimalType, requireType("q"));
+    CHECK_EQ(getBuiltins()->decimalType, requireType("r"));
+}
+
+TEST_CASE("decimal_mixes_with_integer")
+{
+    // the decimal and integer definitions depend on the flag, so it has to be set before the globals are created
+    ScopedFastFlag sff{FFlag::LuauIntegerType2, true};
+    BuiltinsFixture fix;
+
+    CheckResult result = fix.check(R"(
+        local a: decimal = 1.5d
+        local i: integer = 2i
+        local s1 = a + i
+        local s2 = i * a
+        local s3 = a / i
+        local c1 = a < i
+        local c2 = i <= a
+        local c3 = a >= i
+    )");
+
+    INFO(fix.getErrors(result));
+    REQUIRE_EQ(0, result.errors.size());
+    CHECK_EQ(fix.getBuiltins()->decimalType, fix.requireType("s1"));
+    CHECK_EQ(fix.getBuiltins()->decimalType, fix.requireType("s2"));
+    CHECK_EQ(fix.getBuiltins()->decimalType, fix.requireType("s3"));
+    CHECK_EQ(fix.getBuiltins()->booleanType, fix.requireType("c1"));
+}
+
+TEST_CASE_FIXTURE(BuiltinsFixture, "decimal_does_not_support_floor_division_or_exponent")
+{
+    CheckResult result = check(R"(
+        local a: decimal = 1.5d
+        local x = a // a
+    )");
+
+    LUAU_REQUIRE_ERRORS(result);
+
+    result = check(R"(
+        local a: decimal = 1.5d
+        local x = a ^ a
+    )");
+
+    LUAU_REQUIRE_ERRORS(result);
+}
+
+TEST_CASE("decimal_library_rounding_functions")
+{
+    ScopedFastFlag sff{FFlag::LuauIntegerType2, true};
+    BuiltinsFixture fix;
+
+    CheckResult result = fix.check(R"(
+        local a = 2.675d
+        local r: decimal = decimal.round(a, 2, "halfeven")
+        local f: decimal = decimal.floor(a)
+        local c: decimal = decimal.ceil(a)
+        local t: decimal = decimal.trunc(a)
+        local ab: decimal = decimal.abs(a)
+        local sg: number = decimal.sign(a)
+        local sc: number = decimal.scale(a)
+        local mn: decimal = decimal.min(a, 1d, 3i)
+        local mx: decimal = decimal.max(a, 1d, 3i)
+        local q: decimal = decimal.div(a, 2i)
+        local m: decimal = decimal.rem(a, 2i)
+    )");
+
+    INFO(fix.getErrors(result));
+    REQUIRE_EQ(0, result.errors.size());
 }
 
 TEST_CASE_FIXTURE(BuiltinsFixture, "typeof_decimal_refines")

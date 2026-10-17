@@ -16,8 +16,6 @@
 #define luai_numlt(a, b) ((a) < (b))
 #define luai_numle(a, b) ((a) <= (b))
 #define luai_inteq(a, b) ((a) == (b))
-// decimals are always stored normalized (no trailing zeros in the mantissa, zero has exponent 0)
-#define luai_deceq(m1, e1, m2, e2) ((m1) == (m2) && (e1) == (e2))
 
 inline bool luai_veceq(const float* a, const float* b)
 {
@@ -134,12 +132,22 @@ LUAI_FUNC char* luai_num2str(char* buf, double n);
 LUAI_FUNC char* luai_int2str(char* buf, int64_t n);
 LUAI_FUNC char* luai_dec2str(char* buf, int64_t mantissa, int exponent);
 
-// decimal arithmetic (ldeclib.cpp); the result variants return false on exponent overflow, deccmp returns <0, 0 or >0
+// decimals are stored as an int64 mantissa and an exponent in [-28, 0] (the negated scale), see ldeclib.cpp
+// the add, sub, mul and neg functions return false on overflow; the div and rem functions return one of the LUAI_DEC_ codes below
+#define LUAI_DEC_OK 0
+#define LUAI_DEC_OVERFLOW 1
+#define LUAI_DEC_DIVZERO 2
+
 LUAI_FUNC bool luai_decadd(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
 LUAI_FUNC bool luai_decsub(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
 LUAI_FUNC bool luai_decmul(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
 LUAI_FUNC bool luai_decneg(int64_t m, int e, int64_t* om, int* oe);
-LUAI_FUNC int luai_deccmp(int64_t ma, int ea, int64_t mb, int eb);
+LUAI_FUNC int luai_decdiv(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
+LUAI_FUNC int luai_decrem(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
+LUAI_FUNC int luai_deccmp(int64_t ma, int ea, int64_t mb, int eb); // <0, 0 or >0
+
+// equality is numeric: 2.50 == 2.5
+#define luai_deceq(m1, e1, m2, e2) ((e1) == (e2) ? (m1) == (m2) : luai_deccmp((m1), (e1), (m2), (e2)) == 0)
 
 #define luai_str2num(s, p) strtod((s), (p))
 #define luai_str2long(s, p, base) strtoll((s), (p), base)

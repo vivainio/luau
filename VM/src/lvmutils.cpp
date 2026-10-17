@@ -420,8 +420,36 @@ int luaV_strcmp(const TString* ls, const TString* rs)
     return ll == lr ? 0 : ll < lr ? -1 : 1;
 }
 
+// decimals can be mixed with integers (but not numbers) in arithmetic and ordering comparisons
+static bool decimalOperand(const TValue* o, int64_t* m, int* e)
+{
+    if (ttisdecimal(o))
+    {
+        *m = decmantissa(o);
+        *e = decexponent(o);
+        return true;
+    }
+
+    if (ttisinteger(o))
+    {
+        *m = lvalue(o);
+        *e = 0;
+        return true;
+    }
+
+    return false;
+}
+
 int luaV_lessthan(lua_State* L, const TValue* l, const TValue* r)
 {
+    if (LUAU_UNLIKELY(ttisdecimal(l) || ttisdecimal(r)))
+    {
+        int64_t ml, mr;
+        int el, er;
+        if (decimalOperand(l, &ml, &el) && decimalOperand(r, &mr, &er))
+            return luai_deccmp(ml, el, mr, er) < 0;
+    }
+
     if (LUAU_UNLIKELY(ttype(l) != ttype(r)))
         luaG_ordererror(L, l, r, TM_LT);
     else if (LUAU_LIKELY(ttisnumber(l)))
@@ -436,6 +464,14 @@ int luaV_lessthan(lua_State* L, const TValue* l, const TValue* r)
 
 int luaV_lessequal(lua_State* L, const TValue* l, const TValue* r)
 {
+    if (LUAU_UNLIKELY(ttisdecimal(l) || ttisdecimal(r)))
+    {
+        int64_t ml, mr;
+        int el, er;
+        if (decimalOperand(l, &ml, &el) && decimalOperand(r, &mr, &er))
+            return luai_deccmp(ml, el, mr, er) <= 0;
+    }
+
     int res;
     if (ttype(l) != ttype(r))
         luaG_ordererror(L, l, r, TM_LE);
@@ -572,40 +608,53 @@ void luaV_doarithimpl(lua_State* L, StkId ra, const TValue* rb, const TValue* rc
     TValue tempb, tempc;
     const TValue *b, *c;
 
-    // decimal operations that we support: d+d d-d d*d -d (no implicit conversion from or to numbers)
-    if (LUAU_UNLIKELY(ttisdecimal(rb) && ttisdecimal(rc)))
+    // decimal operations that we support: + - * / % and unary minus between decimals and integers (at least one operand being a decimal)
+    // there is no implicit conversion from or to numbers
+    if (LUAU_UNLIKELY(ttisdecimal(rb) || ttisdecimal(rc)))
     {
-        int64_t m = 0;
-        int e = 0;
-        bool ok = false;
-        bool supported = true;
+        int64_t mb, mc, m = 0;
+        int eb, ec, e = 0;
 
-        switch (op)
+        if (decimalOperand(rb, &mb, &eb) && decimalOperand(rc, &mc, &ec))
         {
-        case TM_ADD:
-            ok = luai_decadd(decmantissa(rb), decexponent(rb), decmantissa(rc), decexponent(rc), &m, &e);
-            break;
-        case TM_SUB:
-            ok = luai_decsub(decmantissa(rb), decexponent(rb), decmantissa(rc), decexponent(rc), &m, &e);
-            break;
-        case TM_MUL:
-            ok = luai_decmul(decmantissa(rb), decexponent(rb), decmantissa(rc), decexponent(rc), &m, &e);
-            break;
-        case TM_UNM:
-            ok = luai_decneg(decmantissa(rb), decexponent(rb), &m, &e);
-            break;
-        default:
-            supported = false;
-            break;
-        }
+            int status = LUAI_DEC_OK;
+            bool supported = true;
 
-        if (supported)
-        {
-            if (!ok)
-                luaG_runerror(L, "decimal overflow");
+            switch (op)
+            {
+            case TM_ADD:
+                status = luai_decadd(mb, eb, mc, ec, &m, &e) ? LUAI_DEC_OK : LUAI_DEC_OVERFLOW;
+                break;
+            case TM_SUB:
+                status = luai_decsub(mb, eb, mc, ec, &m, &e) ? LUAI_DEC_OK : LUAI_DEC_OVERFLOW;
+                break;
+            case TM_MUL:
+                status = luai_decmul(mb, eb, mc, ec, &m, &e) ? LUAI_DEC_OK : LUAI_DEC_OVERFLOW;
+                break;
+            case TM_DIV:
+                status = luai_decdiv(mb, eb, mc, ec, &m, &e);
+                break;
+            case TM_MOD:
+                status = luai_decrem(mb, eb, mc, ec, &m, &e);
+                break;
+            case TM_UNM:
+                status = luai_decneg(mb, eb, &m, &e) ? LUAI_DEC_OK : LUAI_DEC_OVERFLOW;
+                break;
+            default:
+                supported = false;
+                break;
+            }
 
-            setdecvalue(ra, m, e);
-            return;
+            if (supported)
+            {
+                if (status == LUAI_DEC_DIVZERO)
+                    luaG_runerror(L, "decimal division by zero");
+                if (status != LUAI_DEC_OK)
+                    luaG_runerror(L, "decimal overflow");
+
+                setdecvalue(ra, m, e);
+                return;
+            }
         }
     }
 

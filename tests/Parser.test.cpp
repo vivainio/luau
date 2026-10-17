@@ -833,7 +833,7 @@ TEST_CASE_FIXTURE(Fixture, "parse_decimal_literals")
         int64_t mantissa;
         int exponent;
     };
-    const Expected expected[] = {{125, -2}, {1, 2}, {15, -1}, {1, 3}, {0, 0}};
+    const Expected expected[] = {{125, -2}, {100, 0}, {150, -2}, {1000, 0}, {0, -2}};
 
     for (size_t i = 0; i < 5; ++i)
     {
@@ -852,7 +852,8 @@ TEST_CASE_FIXTURE(Fixture, "parse_decimal_literal_errors")
     matchParseError("return 1.2.3d", "Malformed decimal");
     matchParseError("return 1ed", "Malformed decimal");
     matchParseError("return 9223372036854775808d", "Decimal literal is out of range");
-    matchParseError("return 1e101d", "Decimal literal is out of range");
+    matchParseError("return 1e30d", "Decimal literal is out of range");
+    matchParseError("return 1e-29d", "Decimal literal is out of range");
 }
 
 TEST_CASE_FIXTURE(Fixture, "parse_numbers_hexadecimal")

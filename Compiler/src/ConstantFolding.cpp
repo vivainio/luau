@@ -51,8 +51,21 @@ static bool constantsEqual(const Constant& la, const Constant& ra)
         return ra.type == Constant::Type_Table && la.valueTable == ra.valueTable;
 
     case Constant::Type_Decimal:
-        return ra.type == Constant::Type_Decimal && la.valueDecimal.mantissa == ra.valueDecimal.mantissa &&
-               la.valueDecimal.exponent == ra.valueDecimal.exponent;
+    {
+        if (ra.type != Constant::Type_Decimal)
+            return false;
+
+        // decimals are equal if they are numerically equal, regardless of scale (1.50d == 1.5d)
+        int64_t lm = la.valueDecimal.mantissa, rm = ra.valueDecimal.mantissa;
+        int le = la.valueDecimal.exponent, re = ra.valueDecimal.exponent;
+
+        while (lm != 0 && lm % 10 == 0)
+            lm /= 10, le++;
+        while (rm != 0 && rm % 10 == 0)
+            rm /= 10, re++;
+
+        return lm == rm && (lm == 0 || le == re);
+    }
 
     case Constant::Type_Integer:
         if (FFlag::LuauIntegerType2)

@@ -2861,7 +2861,12 @@ TypeId TypeChecker::checkRelationalOperation(
          * have a better, more descriptive error teed up.
          */
         Unifier state = mkUnifier(scope, expr.location);
-        if (!isEquality)
+
+        // decimals can be ordered against integers, which are unrelated types
+        const bool isDecimalIntegerOrdering = (isDecimal(follow(lhsType)) && (isDecimal(follow(rhsType)) || isInteger(follow(rhsType)))) ||
+                                              (isInteger(follow(lhsType)) && isDecimal(follow(rhsType)));
+
+        if (!isEquality && !isDecimalIntegerOrdering)
         {
             state.tryUnify(rhsType, lhsType);
             state.log.commit();

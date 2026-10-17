@@ -1309,6 +1309,9 @@ TEST_CASE("Math")
 
 TEST_CASE("Decimals")
 {
+    // decimals mix with integers, so the integer literal syntax must be available
+    ScopedFastFlag integerType{FFlag::LuauIntegerType2, true};
+
     runConformance("decimal.luau");
 }
 
