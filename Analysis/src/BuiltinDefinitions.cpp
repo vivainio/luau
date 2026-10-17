@@ -1166,6 +1166,25 @@ bool MagicPcall::infer(const MagicFunctionCallContext& ctx)
     return true;
 }
 
+// Operators between decimals produce decimals; mixing decimals with other types is an error
+TypeId makeDecimalMetatable(NotNull<BuiltinTypes> builtinTypes)
+{
+    TypeArena& arena = *builtinTypes->arena;
+    const TypeId decimalTy = builtinTypes->decimalType;
+
+    TypeId metatableTy = arena.addType(TableType{{}, std::nullopt, TypeLevel{}, TableState::Sealed});
+    TableType* metatable = Luau::getMutable<TableType>(metatableTy);
+
+    metatable->props["__add"] = {makeFunction(arena, decimalTy, {decimalTy}, {decimalTy})};
+    metatable->props["__sub"] = {makeFunction(arena, decimalTy, {decimalTy}, {decimalTy})};
+    metatable->props["__mul"] = {makeFunction(arena, decimalTy, {decimalTy}, {decimalTy})};
+    metatable->props["__unm"] = {makeFunction(arena, decimalTy, {}, {decimalTy})};
+    metatable->props["__lt"] = {makeFunction(arena, decimalTy, {decimalTy}, {builtinTypes->booleanType})};
+    metatable->props["__le"] = {makeFunction(arena, decimalTy, {decimalTy}, {builtinTypes->booleanType})};
+
+    return metatableTy;
+}
+
 TypeId makeStringMetatable(NotNull<BuiltinTypes> builtinTypes, SolverMode mode)
 {
     NotNull<TypeArena> arena{builtinTypes->arena.get()};

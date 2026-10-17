@@ -42,7 +42,7 @@ namespace Luau
 
 static bool typeCouldHaveMetatable(TypeId ty)
 {
-    return get<TableType>(follow(ty)) || get<ExternType>(follow(ty)) || get<MetatableType>(follow(ty));
+    return get<TableType>(follow(ty)) || get<ExternType>(follow(ty)) || get<MetatableType>(follow(ty)) || isDecimal(follow(ty));
 }
 
 static void defaultLuauPrintLine(const std::string& s)
@@ -219,6 +219,7 @@ TypeChecker::TypeChecker(const ScopePtr& globalScope, ModuleResolver* resolver, 
     , nilType(builtinTypes->nilType)
     , numberType(builtinTypes->numberType)
     , integerType(builtinTypes->integerType)
+    , decimalType(builtinTypes->decimalType)
     , stringType(builtinTypes->stringType)
     , booleanType(builtinTypes->booleanType)
     , threadType(builtinTypes->threadType)
@@ -1955,10 +1956,7 @@ WithPredicate<TypeId> TypeChecker::checkExpr(const ScopePtr& scope, const AstExp
     else if (expr.is<AstExprConstantInteger>())
         result = WithPredicate{integerType};
     else if (expr.is<AstExprConstantDecimal>())
-    {
-        std::optional<TypeFun> decimalType = globalScope->lookupType("decimal");
-        result = WithPredicate{decimalType ? decimalType->type : anyType};
-    }
+        result = WithPredicate{decimalType};
     else if (auto a = expr.as<AstExprLocal>())
         result = checkExpr(scope, *a);
     else if (auto a = expr.as<AstExprGlobal>())
@@ -6606,6 +6604,8 @@ void TypeChecker::resolve(const TypeGuardPredicate& typeguardP, RefinementMap& r
         return refine(isNumber, numberType);
     else if (typeguardP.kind == "integer")
         return refine(isInteger, integerType);
+    else if (typeguardP.kind == "decimal")
+        return refine(isDecimal, decimalType);
     else if (typeguardP.kind == "boolean")
         return refine(isBoolean, booleanType);
     else if (typeguardP.kind == "thread")

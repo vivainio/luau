@@ -168,6 +168,7 @@ struct PrimitiveType
         Boolean,
         Number,
         Integer,
+        Decimal,
         String,
         Thread,
         Function,
@@ -986,6 +987,7 @@ bool isNil(TypeId ty);
 bool isBoolean(TypeId ty);
 bool isNumber(TypeId ty);
 bool isInteger(TypeId ty);
+bool isDecimal(TypeId ty);
 bool isString(TypeId ty);
 bool isThread(TypeId ty);
 bool isBuffer(TypeId ty);
@@ -1034,6 +1036,7 @@ struct BuiltinTypes
     TypePackId errorRecoveryTypePack(TypePackId guess) const;
 
     friend TypeId makeStringMetatable(NotNull<BuiltinTypes> builtinTypes, SolverMode mode);
+    friend TypeId makeDecimalMetatable(NotNull<BuiltinTypes> builtinTypes);
     friend struct GlobalTypes;
 
 private:
@@ -1045,6 +1048,7 @@ public:
     const TypeId nilType;
     const TypeId numberType;
     const TypeId integerType;
+    const TypeId decimalType;
     const TypeId stringType;
     const TypeId booleanType;
     const TypeId threadType;

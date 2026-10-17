@@ -145,4 +145,96 @@ TEST_CASE_FIXTURE(BuiltinsFixture, "properties_of_vectors")
     LUAU_REQUIRE_NO_ERRORS(result);
 }
 
+TEST_CASE_FIXTURE(BuiltinsFixture, "decimal_literal_has_decimal_type")
+{
+    CheckResult result = check(R"(
+        local a = 1.25d
+        local b: decimal = 100d
+    )");
+
+    LUAU_REQUIRE_NO_ERRORS(result);
+    CHECK_EQ(getBuiltins()->decimalType, requireType("a"));
+    CHECK_EQ("decimal", toString(requireType("b")));
+}
+
+TEST_CASE_FIXTURE(BuiltinsFixture, "decimal_operators_between_decimals")
+{
+    CheckResult result = check(R"(
+        local a: decimal = 1.5d
+        local b: decimal = 2d
+        local sum = a + b
+        local diff = a - b
+        local prod = a * b
+        local neg = -a
+        local lt = a < b
+        local le = a <= b
+        local gt = a > b
+        local ge = a >= b
+        local eq = a == b
+    )");
+
+    LUAU_REQUIRE_NO_ERRORS(result);
+    CHECK_EQ(getBuiltins()->decimalType, requireType("sum"));
+    CHECK_EQ(getBuiltins()->decimalType, requireType("diff"));
+    CHECK_EQ(getBuiltins()->decimalType, requireType("prod"));
+    CHECK_EQ(getBuiltins()->decimalType, requireType("neg"));
+    CHECK_EQ(getBuiltins()->booleanType, requireType("lt"));
+    CHECK_EQ(getBuiltins()->booleanType, requireType("le"));
+}
+
+TEST_CASE_FIXTURE(BuiltinsFixture, "decimal_does_not_mix_with_number")
+{
+    CheckResult result = check(R"(
+        local a: decimal = 1.5d
+        local x = a + 1
+    )");
+
+    LUAU_REQUIRE_ERRORS(result);
+
+    result = check(R"(
+        local a: decimal = 1.5d
+        local n: number = a
+    )");
+
+    LUAU_REQUIRE_ERRORS(result);
+
+    result = check(R"(
+        local n: number = 1.5
+        local a: decimal = n
+    )");
+
+    LUAU_REQUIRE_ERRORS(result);
+}
+
+TEST_CASE_FIXTURE(BuiltinsFixture, "decimal_library_functions")
+{
+    CheckResult result = check(R"(
+        local a = decimal.fromstring("1.5")
+        local b: decimal = decimal.add(1.5d, 2d)
+        local c = decimal.round(b, 2)
+        local s: string = decimal.tostring(c)
+        local n: number = decimal.tonumber(c)
+        local bad = decimal.add(1.5d, 2)
+    )");
+
+    LUAU_REQUIRE_ERROR_COUNT(1, result);
+    CHECK_EQ("decimal?", toString(requireType("a")));
+}
+
+TEST_CASE_FIXTURE(BuiltinsFixture, "typeof_decimal_refines")
+{
+    CheckResult result = check(R"(
+        local function f(x: decimal | string): decimal?
+            if type(x) == "decimal" then
+                return x
+            end
+            return nil
+        end
+        local r = f(1d)
+    )");
+
+    LUAU_REQUIRE_NO_ERRORS(result);
+    CHECK_EQ("decimal?", toString(requireType("r")));
+}
+
 TEST_SUITE_END();

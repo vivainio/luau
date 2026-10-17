@@ -20,6 +20,7 @@ GlobalTypes::GlobalTypes(NotNull<BuiltinTypes> builtinTypes, SolverMode mode)
     globalScope->addBuiltinTypeBinding("number", TypeFun{{}, builtinTypes->numberType});
     if (FFlag::LuauIntegerType2)
         globalScope->addBuiltinTypeBinding("integer", TypeFun{{}, builtinTypes->integerType});
+    globalScope->addBuiltinTypeBinding("decimal", TypeFun{{}, builtinTypes->decimalType});
     globalScope->addBuiltinTypeBinding("string", TypeFun{{}, builtinTypes->stringType});
     globalScope->addBuiltinTypeBinding("boolean", TypeFun{{}, builtinTypes->booleanType});
     globalScope->addBuiltinTypeBinding("thread", TypeFun{{}, builtinTypes->threadType});
@@ -36,6 +37,10 @@ GlobalTypes::GlobalTypes(NotNull<BuiltinTypes> builtinTypes, SolverMode mode)
     TypeId stringMetatableTy = makeStringMetatable(builtinTypes, mode);
     asMutable(builtinTypes->stringType)->ty.emplace<PrimitiveType>(PrimitiveType::String, stringMetatableTy);
     persist(stringMetatableTy);
+
+    TypeId decimalMetatableTy = makeDecimalMetatable(builtinTypes);
+    asMutable(builtinTypes->decimalType)->ty.emplace<PrimitiveType>(PrimitiveType::Decimal, decimalMetatableTy);
+    persist(decimalMetatableTy);
     freeze(*builtinTypes->arena);
 }
 

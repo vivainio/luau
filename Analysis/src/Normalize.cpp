@@ -240,6 +240,7 @@ NormalizedType::NormalizedType(NotNull<BuiltinTypes> builtinTypes)
     , nils(builtinTypes->neverType)
     , numbers(builtinTypes->neverType)
     , integers(builtinTypes->neverType)
+    , decimals(builtinTypes->neverType)
     , strings{NormalizedStringType::never}
     , threads(builtinTypes->neverType)
     , buffers(builtinTypes->neverType)
@@ -256,12 +257,12 @@ bool NormalizedType::isUnknown() const
     if (FFlag::LuauIntegerType2)
     {
         hasAllPrimitives = isPrim(booleans, PrimitiveType::Boolean) && isPrim(nils, PrimitiveType::NilType) && isNumber(numbers) &&
-                           strings.isString() && isThread(threads) && isBuffer(buffers) && isInteger(integers);
+                           strings.isString() && isThread(threads) && isBuffer(buffers) && isInteger(integers) && isDecimal(decimals);
     }
     else
     {
         hasAllPrimitives = isPrim(booleans, PrimitiveType::Boolean) && isPrim(nils, PrimitiveType::NilType) && isNumber(numbers) &&
-                           strings.isString() && isThread(threads) && isBuffer(buffers);
+                           strings.isString() && isThread(threads) && isBuffer(buffers) && isDecimal(decimals);
     }
 
     // Check is extern type
@@ -378,6 +379,11 @@ bool NormalizedType::hasIntegers() const
         return false;
 }
 
+bool NormalizedType::hasDecimals() const
+{
+    return get<NeverType>(decimals) == nullptr;
+}
+
 bool NormalizedType::hasStrings() const
 {
     return !strings.isNever();
@@ -452,13 +458,14 @@ static bool isShallowInhabited(const NormalizedType& norm)
         return !get<NeverType>(norm.tops) || !get<NeverType>(norm.booleans) || !norm.externTypes.isNever() || !get<NeverType>(norm.errors) ||
                !get<NeverType>(norm.nils) || !get<NeverType>(norm.numbers) || !norm.strings.isNever() || !get<NeverType>(norm.threads) ||
                (get<NeverType>(norm.buffers) == nullptr) || !norm.functions.isNever() || !norm.tables.empty() || !norm.tyvars.empty() ||
-               (get<NeverType>(norm.integers) == nullptr);
+               (get<NeverType>(norm.integers) == nullptr) || (get<NeverType>(norm.decimals) == nullptr);
     }
     else
     {
         return !get<NeverType>(norm.tops) || !get<NeverType>(norm.booleans) || !norm.externTypes.isNever() || !get<NeverType>(norm.errors) ||
                !get<NeverType>(norm.nils) || !get<NeverType>(norm.numbers) || !norm.strings.isNever() || !get<NeverType>(norm.threads) ||
-               !get<NeverType>(norm.buffers) || !norm.functions.isNever() || !norm.tables.empty() || !norm.tyvars.empty();
+               !get<NeverType>(norm.buffers) || !norm.functions.isNever() || !norm.tables.empty() || !norm.tyvars.empty() ||
+               (get<NeverType>(norm.decimals) == nullptr);
     }
 }
 
@@ -488,14 +495,14 @@ NormalizationResult Normalizer::isInhabited(const NormalizedType* norm, DenseHas
     {
         if (!get<NeverType>(norm->tops) || !get<NeverType>(norm->booleans) || !get<NeverType>(norm->errors) || !get<NeverType>(norm->nils) ||
             !get<NeverType>(norm->numbers) || !get<NeverType>(norm->threads) || !get<NeverType>(norm->buffers) || !norm->externTypes.isNever() ||
-            !get<NeverType>(norm->integers) || !norm->strings.isNever() || !norm->functions.isNever())
+            !get<NeverType>(norm->integers) || !get<NeverType>(norm->decimals) || !norm->strings.isNever() || !norm->functions.isNever())
             return NormalizationResult::True;
     }
     else
     {
         if (!get<NeverType>(norm->tops) || !get<NeverType>(norm->booleans) || !get<NeverType>(norm->errors) || !get<NeverType>(norm->nils) ||
             !get<NeverType>(norm->numbers) || !get<NeverType>(norm->threads) || !get<NeverType>(norm->buffers) || !norm->externTypes.isNever() ||
-            !norm->strings.isNever() || !norm->functions.isNever())
+            !get<NeverType>(norm->decimals) || !norm->strings.isNever() || !norm->functions.isNever())
             return NormalizationResult::True;
     }
 
@@ -746,6 +753,16 @@ static bool isNormalizedInteger(TypeId ty)
         return false;
 }
 
+static bool isNormalizedDecimal(TypeId ty)
+{
+    if (get<NeverType>(ty))
+        return true;
+    else if (const PrimitiveType* ptv = get<PrimitiveType>(ty))
+        return ptv->type == PrimitiveType::Decimal;
+    else
+        return false;
+}
+
 static bool isNormalizedString(const NormalizedStringType& ty)
 {
     if (ty.isString())
@@ -911,6 +928,7 @@ static void assertInvariant(const NormalizedType& norm)
     LUAU_ASSERT(isNormalizedNumber(norm.numbers));
     if (FFlag::LuauIntegerType2)
         LUAU_ASSERT(isNormalizedInteger(norm.integers));
+    LUAU_ASSERT(isNormalizedDecimal(norm.decimals));
     LUAU_ASSERT(isNormalizedString(norm.strings));
     LUAU_ASSERT(isNormalizedThread(norm.threads));
     LUAU_ASSERT(isNormalizedBuffer(norm.buffers));
@@ -1072,6 +1090,7 @@ void Normalizer::clearNormal(NormalizedType& norm)
     norm.nils = builtinTypes->neverType;
     norm.numbers = builtinTypes->neverType;
     norm.integers = builtinTypes->neverType;
+    norm.decimals = builtinTypes->neverType;
     norm.strings.resetToNever();
     norm.threads = builtinTypes->neverType;
     norm.buffers = builtinTypes->neverType;
@@ -1805,6 +1824,7 @@ NormalizationResult Normalizer::unionNormals(NormalizedType& here, const Normali
     here.numbers = (get<NeverType>(there.numbers) ? here.numbers : there.numbers);
     if (FFlag::LuauIntegerType2)
         here.integers = (get<NeverType>(there.integers) ? here.integers : there.integers);
+    here.decimals = (get<NeverType>(there.decimals) ? here.decimals : there.decimals);
     unionStrings(here.strings, there.strings);
     here.threads = (get<NeverType>(there.threads) ? here.threads : there.threads);
     here.buffers = (get<NeverType>(there.buffers) ? here.buffers : there.buffers);
@@ -1966,6 +1986,8 @@ NormalizationResult Normalizer::unionNormalWithTy(
             here.numbers = there;
         else if (FFlag::LuauIntegerType2 && (ptv->type == PrimitiveType::Integer))
             here.integers = there;
+        else if (ptv->type == PrimitiveType::Decimal)
+            here.decimals = there;
         else if (ptv->type == PrimitiveType::String)
             here.strings.resetToString();
         else if (ptv->type == PrimitiveType::Thread)
@@ -2103,6 +2125,7 @@ std::optional<NormalizedType> Normalizer::negateNormal(const NormalizedType& her
     result.numbers = get<NeverType>(here.numbers) ? builtinTypes->numberType : builtinTypes->neverType;
     if (FFlag::LuauIntegerType2)
         result.integers = get<NeverType>(here.integers) ? builtinTypes->integerType : builtinTypes->neverType;
+    result.decimals = get<NeverType>(here.decimals) ? builtinTypes->decimalType : builtinTypes->neverType;
 
     result.strings = here.strings;
     result.strings.isCofinite = !result.strings.isCofinite;
@@ -2200,6 +2223,9 @@ void Normalizer::subtractPrimitive(NormalizedType& here, TypeId ty)
         break;
     case PrimitiveType::Integer:
         here.integers = builtinTypes->neverType;
+        break;
+    case PrimitiveType::Decimal:
+        here.decimals = builtinTypes->neverType;
         break;
     case PrimitiveType::String:
         here.strings.resetToNever();
@@ -3731,6 +3757,7 @@ NormalizationResult Normalizer::intersectNormals(NormalizedType& here, const Nor
     here.numbers = (get<NeverType>(there.numbers) ? there.numbers : here.numbers);
     if (FFlag::LuauIntegerType2)
         here.integers = (get<NeverType>(there.integers) ? there.integers : here.integers);
+    here.decimals = (get<NeverType>(there.decimals) ? there.decimals : here.decimals);
     intersectStrings(here.strings, there.strings);
     here.threads = (get<NeverType>(there.threads) ? there.threads : here.threads);
     here.buffers = (get<NeverType>(there.buffers) ? there.buffers : here.buffers);
@@ -3916,6 +3943,7 @@ NormalizationResult Normalizer::intersectNormalWithTy(
         TypeId nils = here.nils;
         TypeId numbers = here.numbers;
         TypeId integers = here.integers;
+        TypeId decimals = here.decimals;
         NormalizedStringType strings = std::move(here.strings);
         NormalizedFunctionType functions = std::move(here.functions);
         TypeId threads = here.threads;
@@ -3932,6 +3960,8 @@ NormalizationResult Normalizer::intersectNormalWithTy(
             here.numbers = numbers;
         else if (FFlag::LuauIntegerType2 && (ptv->type == PrimitiveType::Integer))
             here.integers = integers;
+        else if (ptv->type == PrimitiveType::Decimal)
+            here.decimals = decimals;
         else if (ptv->type == PrimitiveType::String)
             here.strings = std::move(strings);
         else if (ptv->type == PrimitiveType::Thread)
@@ -4166,6 +4196,8 @@ TypeId Normalizer::typeFromNormal(const NormalizedType& norm)
         if (get<NeverType>(norm.integers) == nullptr)
             result.push_back(norm.integers);
     }
+    if (get<NeverType>(norm.decimals) == nullptr)
+        result.push_back(norm.decimals);
     if (norm.strings.isString())
         result.push_back(builtinTypes->stringType);
     else if (norm.strings.isUnion())

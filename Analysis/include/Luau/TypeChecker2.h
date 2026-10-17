@@ -171,6 +171,7 @@ private:
     void visit(AstExprConstantBool* expr);
     void visit(AstExprConstantNumber* expr);
     void visit(AstExprConstantInteger* expr);
+    void visit(AstExprConstantDecimal* expr);
     void visit(AstExprConstantString* expr);
     void visit(AstExprLocal* expr);
     void visit(AstExprGlobal* expr);

@@ -43,6 +43,7 @@ struct TypeFunctionPrimitiveType
         Boolean,
         Number,
         Integer,
+        Decimal,
         String,
         Thread,
         Buffer,

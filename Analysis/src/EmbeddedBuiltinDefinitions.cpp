@@ -481,11 +481,7 @@ declare integer: {
 
 )BUILTIN_SRC";
 
-// TODO: `decimal` is an opaque extern type for now; it should become a primitive type like `integer`
 static const char* const kBuiltinDefinitionDecimalSrc = R"BUILTIN_SRC(
-
-declare extern type decimal with
-end
 
 declare decimal: {
     create: @checked (x: number | string | decimal) -> decimal?,
@@ -555,7 +551,7 @@ std::string getBuiltinDefinitionSource()
 static constexpr const char* kBuiltinDefinitionTypeMethodSrc = R"BUILTIN_SRC(
 
 export type type = {
-    tag: "nil" | "unknown" | "never" | "any" | "boolean" | "number" | "integer" | "string" | "buffer" | "thread" |
+    tag: "nil" | "unknown" | "never" | "any" | "boolean" | "number" | "integer" | "decimal" | "string" | "buffer" | "thread" |
          "singleton" | "negation" | "union" | "intersection" | "table" | "function" | "extern" | "generic",
 
     is: (self: type, arg: string) -> boolean,
@@ -672,6 +668,7 @@ declare types: {
     thread: type,
     buffer: type,
     integer: type,
+    decimal: type,
 
     singleton: @checked (arg: string | boolean | nil) -> type,
     optional: @checked (arg: type) -> type,

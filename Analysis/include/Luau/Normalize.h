@@ -218,6 +218,10 @@ struct NormalizedType
     // This type is either never or integer.
     TypeId integers;
 
+    // The decimal part of the type.
+    // This type is either never or decimal.
+    TypeId decimals;
+
     // The string part of the type.
     // This may be the `string` type, or a union of singletons.
     NormalizedStringType strings;
@@ -285,6 +289,7 @@ struct NormalizedType
     bool hasNils() const;
     bool hasNumbers() const;
     bool hasIntegers() const;
+    bool hasDecimals() const;
     bool hasStrings() const;
     bool hasThreads() const;
     bool hasBuffers() const;

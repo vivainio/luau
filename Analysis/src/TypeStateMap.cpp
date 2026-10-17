@@ -172,6 +172,8 @@ TypeId TypeStateMap::getDiscriminantOf(const Refine& refine)
         discriminantTy = builtinTypes->numberType;
     else if (name == "integer")
         discriminantTy = builtinTypes->integerType;
+    else if (name == "decimal")
+        discriminantTy = builtinTypes->decimalType;
     else if (name == "boolean")
         discriminantTy = builtinTypes->booleanType;
     else if (name == "thread")

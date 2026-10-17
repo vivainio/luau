@@ -1930,8 +1930,8 @@ void TypeChecker2::visit(AstExpr* expr, ValueContext context)
         return visit(e);
     else if (auto e = expr->as<AstExprConstantInteger>())
         return visit(e);
-    else if (expr->is<AstExprConstantDecimal>())
-        return;
+    else if (auto e = expr->as<AstExprConstantDecimal>())
+        return visit(e);
     else if (auto e = expr->as<AstExprConstantString>())
         return visit(e);
     else if (auto e = expr->as<AstExprLocal>())
@@ -2011,6 +2011,18 @@ void TypeChecker2::visit(AstExprConstantNumber* expr)
 {
 #if defined(LUAU_ENABLE_ASSERT)
     const TypeId bestType = builtinTypes->numberType;
+    const TypeId inferredType = lookupType(expr);
+    NotNull<Scope> scope{FFlag::LuauDontUseInnermostScope ? stack.back() : findInnermostScope_DEPRECATED(expr->location)};
+
+    const SubtypingResult r = subtyping->isSubtype(bestType, inferredType, scope);
+    LUAU_ASSERT(r.isSubtype || isErrorSuppressing(expr->location, inferredType));
+#endif
+}
+
+void TypeChecker2::visit(AstExprConstantDecimal* expr)
+{
+#if defined(LUAU_ENABLE_ASSERT)
+    const TypeId bestType = builtinTypes->decimalType;
     const TypeId inferredType = lookupType(expr);
     NotNull<Scope> scope{FFlag::LuauDontUseInnermostScope ? stack.back() : findInnermostScope_DEPRECATED(expr->location)};
 
@@ -2836,6 +2848,8 @@ void TypeChecker2::visit(AstExprUnary* expr)
         // A negated integer literal is folded into one constant by the compiler, so it never negates anything.
         if (FFlag::LuauIntegerType2 && expr->expr->is<AstExprConstantInteger>())
             testIsSubtype(operandType, builtinTypes->integerType, expr->location);
+        else if (isDecimal(follow(operandType)))
+            testIsSubtype(operandType, builtinTypes->decimalType, expr->location);
         else
             testIsSubtype(operandType, builtinTypes->numberType, expr->location);
     }
