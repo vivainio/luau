@@ -344,6 +344,19 @@ struct AstJsonEncoder : public AstVisitor
         );
     }
 
+    void write(class AstExprConstantDecimal* node)
+    {
+        writeNode(
+            node,
+            "AstExprConstantDecimal",
+            [&]()
+            {
+                write("mantissa", node->mantissa);
+                write("exponent", node->exponent);
+            }
+        );
+    }
+
     void write(class AstExprConstantString* node)
     {
         writeNode(
@@ -1263,6 +1276,12 @@ struct AstJsonEncoder : public AstVisitor
     }
 
     bool visit(class AstExprConstantInteger* node) override
+    {
+        write(node);
+        return false;
+    }
+
+    bool visit(class AstExprConstantDecimal* node) override
     {
         write(node);
         return false;

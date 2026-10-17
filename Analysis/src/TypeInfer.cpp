@@ -1954,6 +1954,11 @@ WithPredicate<TypeId> TypeChecker::checkExpr(const ScopePtr& scope, const AstExp
         result = WithPredicate{numberType};
     else if (expr.is<AstExprConstantInteger>())
         result = WithPredicate{integerType};
+    else if (expr.is<AstExprConstantDecimal>())
+    {
+        std::optional<TypeFun> decimalType = globalScope->lookupType("decimal");
+        result = WithPredicate{decimalType ? decimalType->type : anyType};
+    }
     else if (auto a = expr.as<AstExprLocal>())
         result = checkExpr(scope, *a);
     else if (auto a = expr.as<AstExprGlobal>())

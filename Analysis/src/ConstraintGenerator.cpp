@@ -3309,6 +3309,12 @@ Inference ConstraintGenerator::check(const ScopePtr& scope, AstExpr* expr, std::
         result = Inference{builtinTypes->numberType};
     else if (expr->is<AstExprConstantInteger>())
         result = Inference{builtinTypes->integerType};
+    else if (expr->is<AstExprConstantDecimal>())
+    {
+        // TODO: decimal is an extern type declared by the builtin definitions until it becomes a primitive
+        std::optional<TypeFun> decimalType = globalScope->lookupType("decimal");
+        result = Inference{decimalType ? decimalType->type : builtinTypes->anyType};
+    }
     else if (auto boolExpr = expr->as<AstExprConstantBool>())
         result = check(scope, boolExpr, expectedType, forceSingleton);
     else if (expr->is<AstExprConstantNil>())

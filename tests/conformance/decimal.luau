@@ -8,6 +8,38 @@ local function dec(s) return d.fromstring(s) end
 assert(type(dec("1.5")) == "decimal")
 assert(typeof(dec("1.5")) == "decimal")
 
+-- literals
+assert(type(1.25d) == "decimal")
+assert(typeof(1.25d) == "decimal")
+assert(1.25d == dec("1.25"))
+assert(1.250d == 1.25d)
+assert(100d == dec("100"))
+assert(1e3d == dec("1000"))
+assert(1.5e-3d == dec("0.0015"))
+assert(0d == -0d)
+assert(1_000.5d == dec("1000.5"))
+assert(0x1d == 29) -- hexadecimal numbers are not affected by the suffix
+assert(0.1d + 0.2d == 0.3d)
+assert(19.99d * 3d == 59.97d)
+assert(-1.5d == dec("-1.5"))
+assert(tostring(2.50d) == "2.5")
+assert(9223372036854775807d == dec("9223372036854775807"))
+assert(1e100d == dec("1e100"))
+assert(0.1d < 0.2d)
+assert(not (1.5d == 1.5))
+assert(select(2, loadstring("return 1.2.3d")):find("Malformed decimal"))
+assert(select(2, loadstring("return 1e500d")):find("out of range"))
+assert(select(2, loadstring("return 9223372036854775808d")):find("out of range"))
+
+do
+    local function price(qty)
+        local unit = 19.99d
+        return unit * qty
+    end
+    assert(price(3d) == 59.97d)
+    assert(price(3d) + 1.01d == 60.98d)
+end
+
 -- construction
 assert(d.create(0.1) == dec("0.1"))
 assert(d.create(-2.5) == dec("-2.50"))

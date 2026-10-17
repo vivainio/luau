@@ -184,6 +184,18 @@ void AstExprConstantInteger::visit(AstVisitor* visitor)
     visitor->visit(this);
 }
 
+AstExprConstantDecimal::AstExprConstantDecimal(const Location& location, int64_t mantissa, int exponent)
+    : AstExpr(ClassIndex(), location)
+    , mantissa(mantissa)
+    , exponent(exponent)
+{
+}
+
+void AstExprConstantDecimal::visit(AstVisitor* visitor)
+{
+    visitor->visit(this);
+}
+
 AstExprConstantString::AstExprConstantString(const Location& location, const AstArray<char>& value, QuoteStyle quoteStyle)
     : AstExpr(ClassIndex(), location)
     , value(value)

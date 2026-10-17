@@ -628,6 +628,8 @@ struct NonStrictTypeChecker
             return visit(e);
         else if (auto e = expr->as<AstExprConstantInteger>())
             return visit(e);
+        else if (expr->is<AstExprConstantDecimal>())
+            return {};
         else if (auto e = expr->as<AstExprConstantString>())
             return visit(e);
         else if (auto e = expr->as<AstExprLocal>())

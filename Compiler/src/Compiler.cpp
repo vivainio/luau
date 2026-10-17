@@ -1983,6 +1983,13 @@ struct Compiler
         return (cv != nullptr) && (cv->type == Constant::Type_Vectorf || cv->type == Constant::Type_Vectord);
     }
 
+    bool isConstantDecimal(AstExpr* node)
+    {
+        const Constant* cv = constants.find(node);
+
+        return cv && cv->type == Constant::Type_Decimal;
+    }
+
     bool isConstantInteger(AstExpr* node)
     {
         const Constant* cv = constants.find(node);
@@ -2013,8 +2020,8 @@ struct Compiler
                 std::swap(left, right);
         }
 
-        // disable fast path for vectors and integers because supporting it would require a new opcode
-        if (operandIsConstant && (isConstantVector(right) || (FFlag::LuauIntegerType2 && isConstantInteger(right))))
+        // disable fast path for vectors, integers and decimals because supporting it would require a new opcode
+        if (operandIsConstant && (isConstantVector(right) || isConstantDecimal(right) || (FFlag::LuauIntegerType2 && isConstantInteger(right))))
             operandIsConstant = false;
 
         uint8_t rl = compileExprAuto(left, rs);
@@ -2128,6 +2135,10 @@ struct Compiler
 
         case Constant::Type_Integer:
             cid = bytecode.addConstantInteger(c->valueInteger64);
+            break;
+
+        case Constant::Type_Decimal:
+            cid = bytecode.addConstantDecimal(c->valueDecimal.mantissa, c->valueDecimal.exponent);
             break;
 
         case Constant::Type_Vectorf:
@@ -3174,6 +3185,16 @@ struct Compiler
         }
         break;
 
+        case Constant::Type_Decimal:
+        {
+            int32_t cid = bytecode.addConstantDecimal(cv->valueDecimal.mantissa, cv->valueDecimal.exponent);
+            if (cid < 0)
+                CompileError::raise(node->location, "Exceeded constant limit; simplify the code to compile");
+
+            emitLoadK(target, cid);
+        }
+        break;
+
         case Constant::Type_Vectorf:
         {
             int32_t cid = bytecode.addConstantVectorf(cv->valueVectorf[0], cv->valueVectorf[1], cv->valueVectorf[2], cv->valueVectorf[3]);
@@ -3248,6 +3269,14 @@ struct Compiler
         else if (AstExprConstantInteger* expr = node->as<AstExprConstantInteger>())
         {
             int32_t cid = bytecode.addConstantInteger(expr->value);
+            if (cid < 0)
+                CompileError::raise(expr->location, "Exceeded constant limit; simplify the code to compile");
+
+            emitLoadK(target, cid);
+        }
+        else if (AstExprConstantDecimal* expr = node->as<AstExprConstantDecimal>())
+        {
+            int32_t cid = bytecode.addConstantDecimal(expr->mantissa, expr->exponent);
             if (cid < 0)
                 CompileError::raise(expr->location, "Exceeded constant limit; simplify the code to compile");
 

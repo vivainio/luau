@@ -167,6 +167,18 @@ std::optional<CompTimeBcFunction> fromFunctionBytecode(std::string bytecode, std
             break;
         }
 
+        case LBC_CONSTANT_DECIMAL:
+        {
+            fn.constants[i].kind = BcVmConstKind::Decimal;
+            bool isNegative = read<uint8_t>(data, offset);
+            uint64_t magnitude = readVarInt64(data, offset);
+            fn.constants[i].valueDecimal.mantissa = isNegative ? (int64_t)(~magnitude + 1) : (int64_t)magnitude;
+            bool isNegativeExp = read<uint8_t>(data, offset);
+            int32_t exp = int32_t(readVarInt(data, offset));
+            fn.constants[i].valueDecimal.exponent = isNegativeExp ? -exp : exp;
+            break;
+        }
+
         case LBC_CONSTANT_CLASS_SHAPE:
         {
             LUAU_ASSERT(FFlag::DebugLuauUserDefinedClasses);
@@ -401,6 +413,10 @@ std::string toFunctionBytecode(BytecodeBuilder& bcb, CompTimeBcFunction& fn)
 
         case BcVmConstKind::Integer:
             consts.push_back(bcb.addConstantInteger(c.valueInteger));
+            break;
+
+        case BcVmConstKind::Decimal:
+            consts.push_back(bcb.addConstantDecimal(c.valueDecimal.mantissa, c.valueDecimal.exponent));
             break;
 
         case BcVmConstKind::ClassShape:

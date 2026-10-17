@@ -50,6 +50,10 @@ static bool constantsEqual(const Constant& la, const Constant& ra)
     case Constant::Type_Table:
         return ra.type == Constant::Type_Table && la.valueTable == ra.valueTable;
 
+    case Constant::Type_Decimal:
+        return ra.type == Constant::Type_Decimal && la.valueDecimal.mantissa == ra.valueDecimal.mantissa &&
+               la.valueDecimal.exponent == ra.valueDecimal.exponent;
+
     case Constant::Type_Integer:
         if (FFlag::LuauIntegerType2)
             return ra.type == Constant::Type_Integer && la.valueInteger64 == ra.valueInteger64;
@@ -879,6 +883,12 @@ struct ConstantVisitor : AstVisitor
         {
             result.type = Constant::Type_Integer;
             result.valueInteger64 = expr->value;
+        }
+        else if (AstExprConstantDecimal* expr = node->as<AstExprConstantDecimal>())
+        {
+            result.type = Constant::Type_Decimal;
+            result.valueDecimal.mantissa = expr->mantissa;
+            result.valueDecimal.exponent = expr->exponent;
         }
         else if (AstExprConstantString* expr = node->as<AstExprConstantString>())
         {

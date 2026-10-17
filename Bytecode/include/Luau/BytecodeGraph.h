@@ -145,7 +145,8 @@ enum class BcVmConstKind : uint8_t
     Table,
     Closure,
     Integer,
-    ClassShape
+    ClassShape,
+    Decimal
 };
 
 struct BcVmConst
@@ -164,6 +165,11 @@ struct BcVmConst
         uint32_t valueClosure;
         int64_t valueInteger;
         uint32_t valueClassShape;
+        struct
+        {
+            int64_t mantissa;
+            int32_t exponent;
+        } valueDecimal;
     };
 
     BcVmConst()
@@ -213,6 +219,9 @@ struct BcVmConst
 
         case BcVmConstKind::ClassShape:
             return valueClassShape == rhs.valueClassShape;
+
+        case BcVmConstKind::Decimal:
+            return valueDecimal.mantissa == rhs.valueDecimal.mantissa && valueDecimal.exponent == rhs.valueDecimal.exponent;
 
         default:
             LUAU_ASSERT(!"Unhandled BcVmConstKind");

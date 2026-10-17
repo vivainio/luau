@@ -4012,6 +4012,83 @@ static ConstantNumberParseResult parseInteger64(int64_t& result, const char* dat
     return ConstantNumberParseResult::Ok;
 }
 
+// parses a decimal literal body (without the trailing 'd'): digits[.digits][(e|E)[+-]digits]; the result must be exactly representable
+static ConstantNumberParseResult parseDecimal(int64_t& mantissa, int& exponent, const char* data)
+{
+    const int kMaxExp = 100;
+    const int kMinExp = -100;
+
+    uint64_t m = 0;
+    long e = 0;
+    bool any = false, dot = false;
+
+    const char* p = data;
+    for (; *p; p++)
+    {
+        if (*p >= '0' && *p <= '9')
+        {
+            any = true;
+            unsigned d = unsigned(*p - '0');
+            if (m > (uint64_t(INT64_MAX) - d) / 10)
+                return ConstantNumberParseResult::IntOverflow;
+
+            m = m * 10 + d;
+            if (dot)
+                e--;
+        }
+        else if (*p == '.' && !dot)
+        {
+            dot = true;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    if (!any)
+        return ConstantNumberParseResult::Malformed;
+
+    if (*p == 'e' || *p == 'E')
+    {
+        p++;
+        bool neg = false;
+        if (*p == '+' || *p == '-')
+            neg = *p++ == '-';
+
+        if (!(*p >= '0' && *p <= '9'))
+            return ConstantNumberParseResult::Malformed;
+
+        long ex = 0;
+        for (; *p >= '0' && *p <= '9'; p++)
+        {
+            if (ex < 100000)
+                ex = ex * 10 + (*p - '0');
+        }
+
+        e += neg ? -ex : ex;
+    }
+
+    if (*p != 0)
+        return ConstantNumberParseResult::Malformed;
+
+    if (m == 0)
+        e = 0;
+
+    while (m != 0 && m % 10 == 0 && e < kMaxExp)
+    {
+        m /= 10;
+        e++;
+    }
+
+    if (e > kMaxExp || e < kMinExp)
+        return ConstantNumberParseResult::IntOverflow;
+
+    mantissa = int64_t(m);
+    exponent = int(e);
+    return ConstantNumberParseResult::Ok;
+}
+
 static ConstantNumberParseResult parseDouble(double& result, const char* data)
 {
     // binary literal
@@ -5135,6 +5212,27 @@ AstExpr* Parser::parseNumber()
         AstExprConstantInteger* node = allocator.alloc<AstExprConstantInteger>(start, value, result);
         if (options.storeCstData)
             cstNodeMap[node] = allocator.alloc<CstExprConstantInteger>(sourceData);
+        return node;
+    }
+    else if (scratchData.back() == 'd' && !(scratchData.size() > 1 && scratchData[0] == '0' && (scratchData[1] == 'x' || scratchData[1] == 'X')))
+    {
+        // decimal literal, e.g. 1.25d (note that 0x1d is a hexadecimal number and not a decimal)
+        int64_t mantissa = 0;
+        int exponent = 0;
+        scratchData.pop_back();
+        ConstantNumberParseResult result = parseDecimal(mantissa, exponent, scratchData.c_str());
+
+        nextLexeme();
+
+        if (result == ConstantNumberParseResult::Malformed)
+            return reportExprError(start, {}, "Malformed decimal");
+
+        if (result != ConstantNumberParseResult::Ok)
+            return reportExprError(start, {}, "Decimal literal is out of range");
+
+        AstExprConstantDecimal* node = allocator.alloc<AstExprConstantDecimal>(start, mantissa, exponent);
+        if (options.storeCstData)
+            cstNodeMap[node] = allocator.alloc<CstExprConstantDecimal>(sourceData);
         return node;
     }
     else

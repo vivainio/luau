@@ -372,6 +372,20 @@ public:
     int64_t value;
     ConstantNumberParseResult parseResult;
 };
+// value is mantissa * 10^exponent, normalized (no trailing zeros in the mantissa, zero has exponent 0)
+class AstExprConstantDecimal : public AstExpr
+{
+public:
+    LUAU_RTTI(AstExprConstantDecimal)
+
+    AstExprConstantDecimal(const Location& location, int64_t mantissa, int exponent);
+
+    void visit(AstVisitor* visitor) override;
+
+    int64_t mantissa;
+    int exponent;
+};
+
 class AstExprConstantString : public AstExpr
 {
 public:
@@ -1526,6 +1540,10 @@ public:
         return visit(static_cast<AstExpr*>(node));
     }
     virtual bool visit(class AstExprConstantInteger* node)
+    {
+        return visit(static_cast<AstExpr*>(node));
+    }
+    virtual bool visit(class AstExprConstantDecimal* node)
     {
         return visit(static_cast<AstExpr*>(node));
     }
