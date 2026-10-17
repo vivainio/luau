@@ -134,5 +134,12 @@ LUAI_FUNC char* luai_num2str(char* buf, double n);
 LUAI_FUNC char* luai_int2str(char* buf, int64_t n);
 LUAI_FUNC char* luai_dec2str(char* buf, int64_t mantissa, int exponent);
 
+// decimal arithmetic (ldeclib.cpp); the result variants return false on exponent overflow, deccmp returns <0, 0 or >0
+LUAI_FUNC bool luai_decadd(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
+LUAI_FUNC bool luai_decsub(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
+LUAI_FUNC bool luai_decmul(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
+LUAI_FUNC bool luai_decneg(int64_t m, int e, int64_t* om, int* oe);
+LUAI_FUNC int luai_deccmp(int64_t ma, int ea, int64_t mb, int eb);
+
 #define luai_str2num(s, p) strtod((s), (p))
 #define luai_str2long(s, p, base) strtoll((s), (p), base)

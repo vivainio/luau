@@ -118,12 +118,48 @@ do
     assert(grand == dec("74.36"))
 end
 
+-- operators
+do
+    local a, b = dec("0.1"), dec("0.2")
+    assert(a + b == dec("0.3"))
+    assert(b - a == a)
+    assert(a * b == dec("0.02"))
+    assert(-a == dec("-0.1"))
+    assert(-dec("0") == dec("0"))
+    assert(a < b and a <= b and b > a and b >= a)
+    assert(not (b < a) and not (b <= a))
+    assert(a <= dec("0.10") and a >= dec("0.10"))
+    assert(dec("-1") < dec("1"))
+    assert(dec("19.99") * dec("3") + dec("1.01") == dec("60.98"))
+
+    local x = dec("0")
+    for i = 1, 10 do x += dec("0.1") end
+    assert(x == dec("1"))
+
+    assert(not pcall(function() return dec("1e100") * dec("10") end))
+    assert(select(2, pcall(function() return dec("1e100") * dec("10") end)):find("decimal overflow"))
+
+    local t = {dec("3"), dec("1"), dec("2")}
+    table.sort(t, function(p, q) return p < q end)
+    assert(t[1] == dec("1") and t[3] == dec("3"))
+    table.sort(t)
+    assert(t[1] == dec("1") and t[2] == dec("2") and t[3] == dec("3"))
+end
+
 -- type errors
 assert(not pcall(d.add, dec("1"), 1))
 assert(not pcall(d.add, 1, dec("1")))
 assert(not pcall(d.tostring, 1))
-assert(not pcall(function() return dec("1") + dec("1") end))
-assert(not pcall(function() return dec("1") < dec("2") end))
+-- no implicit conversion between decimals and numbers
+assert(not pcall(function() return dec("1") + 1 end))
+assert(not pcall(function() return 1 + dec("1") end))
+assert(not pcall(function() return dec("1") * 2 end))
+assert(not pcall(function() return dec("1") < 2 end))
+assert(not pcall(function() return dec("1") / dec("3") end)) -- division is not defined yet
+assert(not pcall(function() return dec("1") // dec("3") end))
+assert(not pcall(function() return dec("1") % dec("3") end))
+assert(not pcall(function() return dec("2") ^ dec("3") end))
+assert(not pcall(function() return dec("1") .. "x" end))
 
 -- decimals as table values
 do

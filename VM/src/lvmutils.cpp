@@ -428,6 +428,8 @@ int luaV_lessthan(lua_State* L, const TValue* l, const TValue* r)
         return luai_numlt(nvalue(l), nvalue(r));
     else if (ttisstring(l))
         return luaV_strcmp(tsvalue(l), tsvalue(r)) < 0;
+    else if (ttisdecimal(l))
+        return luai_deccmp(decmantissa(l), decexponent(l), decmantissa(r), decexponent(r)) < 0;
     else
         return call_orderTM(L, l, r, TM_LT, /* error= */ true);
 }
@@ -441,6 +443,8 @@ int luaV_lessequal(lua_State* L, const TValue* l, const TValue* r)
         return luai_numle(nvalue(l), nvalue(r));
     else if (ttisstring(l))
         return luaV_strcmp(tsvalue(l), tsvalue(r)) <= 0;
+    else if (ttisdecimal(l))
+        return luai_deccmp(decmantissa(l), decexponent(l), decmantissa(r), decexponent(r)) <= 0;
     else if ((res = call_orderTM(L, l, r, TM_LE)) != -1) // first try `le'
         return res;
     else if ((res = call_orderTM(L, r, l, TM_LT)) == -1) // error if not `lt'
@@ -567,6 +571,43 @@ void luaV_doarithimpl(lua_State* L, StkId ra, const TValue* rb, const TValue* rc
 {
     TValue tempb, tempc;
     const TValue *b, *c;
+
+    // decimal operations that we support: d+d d-d d*d -d (no implicit conversion from or to numbers)
+    if (LUAU_UNLIKELY(ttisdecimal(rb) && ttisdecimal(rc)))
+    {
+        int64_t m = 0;
+        int e = 0;
+        bool ok = false;
+        bool supported = true;
+
+        switch (op)
+        {
+        case TM_ADD:
+            ok = luai_decadd(decmantissa(rb), decexponent(rb), decmantissa(rc), decexponent(rc), &m, &e);
+            break;
+        case TM_SUB:
+            ok = luai_decsub(decmantissa(rb), decexponent(rb), decmantissa(rc), decexponent(rc), &m, &e);
+            break;
+        case TM_MUL:
+            ok = luai_decmul(decmantissa(rb), decexponent(rb), decmantissa(rc), decexponent(rc), &m, &e);
+            break;
+        case TM_UNM:
+            ok = luai_decneg(decmantissa(rb), decexponent(rb), &m, &e);
+            break;
+        default:
+            supported = false;
+            break;
+        }
+
+        if (supported)
+        {
+            if (!ok)
+                luaG_runerror(L, "decimal overflow");
+
+            setdecvalue(ra, m, e);
+            return;
+        }
+    }
 
     // vector operations that we support:
     // v+v  v-v  -v    (add/sub/neg)

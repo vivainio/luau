@@ -156,41 +156,58 @@ static wide addaligned(wide a, int ea, wide b, int eb, int& oe)
     return a * pow10w(diff) + b;
 }
 
-static int decimal_add(lua_State* L)
+// shared with the VM for the +, - and * operators; all return false if the result overflows the exponent range
+bool luai_decadd(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
 {
-    int64_t ma, mb;
-    int ea, eb;
+    int e;
+    wide r = addaligned(ma, ea, mb, eb, e);
+    return reducewide(r, e, *om, *oe);
+}
+
+bool luai_decsub(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+{
+    int e;
+    wide r = addaligned(ma, ea, -wide(mb), eb, e);
+    return reducewide(r, e, *om, *oe);
+}
+
+bool luai_decmul(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+{
+    return reducewide(wide(ma) * wide(mb), ea + eb, *om, *oe);
+}
+
+bool luai_decneg(int64_t m, int e, int64_t* om, int* oe)
+{
+    return reducewide(-wide(m), e, *om, *oe);
+}
+
+static int decimal_binop(lua_State* L, bool (*op)(int64_t, int, int64_t, int, int64_t*, int*))
+{
+    int64_t ma, mb, om;
+    int ea, eb, oe;
     checkdecimal(L, 1, ma, ea);
     checkdecimal(L, 2, mb, eb);
 
-    int e;
-    wide r = addaligned(ma, ea, mb, eb, e);
-    pushwide(L, r, e);
+    if (!op(ma, ea, mb, eb, &om, &oe))
+        luaL_error(L, "decimal overflow");
+
+    lua_pushdecimal(L, om, oe);
     return 1;
+}
+
+static int decimal_add(lua_State* L)
+{
+    return decimal_binop(L, luai_decadd);
 }
 
 static int decimal_sub(lua_State* L)
 {
-    int64_t ma, mb;
-    int ea, eb;
-    checkdecimal(L, 1, ma, ea);
-    checkdecimal(L, 2, mb, eb);
-
-    int e;
-    wide r = addaligned(ma, ea, -wide(mb), eb, e);
-    pushwide(L, r, e);
-    return 1;
+    return decimal_binop(L, luai_decsub);
 }
 
 static int decimal_mul(lua_State* L)
 {
-    int64_t ma, mb;
-    int ea, eb;
-    checkdecimal(L, 1, ma, ea);
-    checkdecimal(L, 2, mb, eb);
-
-    pushwide(L, wide(ma) * wide(mb), ea + eb);
-    return 1;
+    return decimal_binop(L, luai_decmul);
 }
 
 static int decimal_neg(lua_State* L)
@@ -256,7 +273,7 @@ static int decimal_round(lua_State* L)
     return 1;
 }
 
-static int cmpdec(int64_t ma, int ea, int64_t mb, int eb)
+int luai_deccmp(int64_t ma, int ea, int64_t mb, int eb)
 {
     int sa = (ma > 0) - (ma < 0);
     int sb = (mb > 0) - (mb < 0);
@@ -297,7 +314,7 @@ static int decimal_lt(lua_State* L)
     checkdecimal(L, 1, ma, ea);
     checkdecimal(L, 2, mb, eb);
 
-    lua_pushboolean(L, cmpdec(ma, ea, mb, eb) < 0);
+    lua_pushboolean(L, luai_deccmp(ma, ea, mb, eb) < 0);
     return 1;
 }
 
@@ -308,7 +325,7 @@ static int decimal_le(lua_State* L)
     checkdecimal(L, 1, ma, ea);
     checkdecimal(L, 2, mb, eb);
 
-    lua_pushboolean(L, cmpdec(ma, ea, mb, eb) <= 0);
+    lua_pushboolean(L, luai_deccmp(ma, ea, mb, eb) <= 0);
     return 1;
 }
 
