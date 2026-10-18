@@ -7,9 +7,11 @@
 //       build/release/libluaucompiler.a build/release/libluaubytecode.a build/release/libluauast.a build/release/libluauvm.a \
 //       build/release/libluaucommon.a -o /tmp/decimal-host
 //   /tmp/decimal-host demos/decimal/baseline/bench-userdata.luau
+//   /tmp/decimal-host --codegen demos/decimal/baseline/bench-userdata.luau     (needs build/release/libluaucodegen.a too)
 #include "lua.h"
 #include "lualib.h"
 #include "luacode.h"
+#include "luacodegen.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -158,9 +160,17 @@ static int collectgarbage(lua_State* L)
 
 int main(int argc, char** argv)
 {
+    bool codegen = false;
+    if (argc > 2 && strcmp(argv[1], "--codegen") == 0)
+    {
+        codegen = true;
+        argv++;
+        argc--;
+    }
+
     if (argc < 2)
     {
-        fprintf(stderr, "usage: %s script.luau\n", argv[0]);
+        fprintf(stderr, "usage: %s [--codegen] script.luau\n", argv[0]);
         return 2;
     }
 
@@ -179,6 +189,9 @@ int main(int argc, char** argv)
 
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
+
+    if (codegen && luau_codegen_supported())
+        luau_codegen_create(L);
 
     luaL_newmetatable(L, "Decimal");
     const luaL_Reg meta[] = {
@@ -200,6 +213,9 @@ int main(int argc, char** argv)
     char* bytecode = luau_compile(source.data(), source.size(), nullptr, &bytecodeSize);
     int status = luau_load(L, "=script", bytecode, bytecodeSize, 0);
     free(bytecode);
+
+    if (status == 0 && codegen && luau_codegen_supported())
+        luau_codegen_compile(L, -1);
 
     if (status == 0)
         status = lua_pcall(L, 0, 0, 0);
