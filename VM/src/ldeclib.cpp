@@ -516,7 +516,8 @@ static int decimal_minmax(lua_State* L, bool wantMax)
         checkdecimalarg(L, i, m, e);
 
         int c = luai_deccmp(m, e, bm, be);
-        if (wantMax ? c > 0 : c < 0)
+        // for equal values max keeps the earlier argument and min takes the later one, like Math.Max and Math.Min in .NET
+        if (wantMax ? c > 0 : c <= 0)
         {
             bm = m;
             be = e;

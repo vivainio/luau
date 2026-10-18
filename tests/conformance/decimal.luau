@@ -235,6 +235,8 @@ assert(str(d.abs(3.1d)) == "3.1")
 assert(d.sign(-3.1d) == -1 and d.sign(0d) == 0 and d.sign(0.50d) == 1)
 assert(str(d.min(1.5d, 1.25d, 3d)) == "1.25")
 assert(str(d.max(1.5d, 1.50d, 0.2d)) == "1.5")
+assert(str(d.max(1.50d, 1.5d)) == "1.50") -- ties: max keeps the first argument and min takes the last, as in .NET
+assert(str(d.min(1.50d, 1.5d)) == "1.5")
 assert(str(d.max(2d)) == "2")
 assert(not pcall(d.max))
 
