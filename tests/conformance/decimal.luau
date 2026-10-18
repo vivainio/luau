@@ -192,6 +192,19 @@ assert(not pcall(d.add, dec("9223372036854775807"), dec("1"))) -- integers that 
 assert(str(dec("92233720368547758.07") + dec("0.01")) == "92233720368547758.1") -- one digit too many, so the scale drops to 1
 assert(str(dec("92233720368547758.07") + dec("0.001")) == "92233720368547758.07")
 
+-- the interpreter has fast paths for same-scale add, subtract, multiply and ordering; their edges must match the general path
+assert(9223372036854775806d + 1d == 9223372036854775807d)
+assert(not pcall(function() return -9223372036854775807d - 1d end)) -- would be INT64_MIN, which the mantissa never holds
+assert(not pcall(function() return 9223372036854775807d + 1d end))
+assert(-9223372036854775807d + 9223372036854775807d == 0d)
+assert(str(0.5d * 0.5d) == "0.25")
+assert(str(9223372036854775807d * 1d) == "9223372036854775807")
+assert(not pcall(function() return 9223372036854775807d * 2d end))
+assert(str(0.0000000000000001d * 0.0000000000000001d) == "0.0000000000000000000000000000") -- scale 32 goes through rounding
+assert(1.5d < 1.6d and 1.6d > 1.5d and 1.5d <= 1.5d and not (1.6d <= 1.5d) and not (1.5d < 1.5d))
+assert(-1.5d < 1.5d and -1.6d < -1.5d)
+assert(0.50d >= 0.5d and 0.50d <= 0.5d and not (0.50d < 0.5d)) -- different scales still compare numerically
+
 -- overflow
 assert(not pcall(function() return 9223372036854775807d * 10d end))
 assert(select(2, pcall(function() return 9223372036854775807d * 10d end)):find("decimal overflow"))

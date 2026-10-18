@@ -199,12 +199,26 @@ int luai_decdiv(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
     if (kmin > kmax)
         return LUAI_DEC_OVERFLOW;
 
-    int k = kmax;
+    // the quotient grows with k, and we want the largest k for which it still fits in the mantissa; the digit counts give a close
+    // estimate, so only a couple of 128-bit divisions are needed
+    int k = 19 - (ndigits(a) - ndigits(b));
+    k = k < kmin ? kmin : (k > kmax ? kmax : k);
+
     wide q = (a * pow10w(k)) / b;
     while (q > wide(INT64_MAX) && k > kmin)
     {
         k--;
         q = (a * pow10w(k)) / b;
+    }
+
+    while (k < kmax)
+    {
+        wide next = (a * pow10w(k + 1)) / b;
+        if (next > wide(INT64_MAX))
+            break;
+
+        k++;
+        q = next;
     }
 
     // round half-even using the remainder of the final division
@@ -328,19 +342,34 @@ static int decimal_divop(lua_State* L, int (*op)(int64_t, int, int64_t, int, int
     }
 }
 
+static bool decimal_addfast(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+{
+    return luai_decaddfast(ma, ea, mb, eb, om, oe) || luai_decadd(ma, ea, mb, eb, om, oe);
+}
+
+static bool decimal_subfast(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+{
+    return luai_decsubfast(ma, ea, mb, eb, om, oe) || luai_decsub(ma, ea, mb, eb, om, oe);
+}
+
+static bool decimal_mulfast(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+{
+    return luai_decmulfast(ma, ea, mb, eb, om, oe) || luai_decmul(ma, ea, mb, eb, om, oe);
+}
+
 static int decimal_add(lua_State* L)
 {
-    return decimal_binop(L, luai_decadd);
+    return decimal_binop(L, decimal_addfast);
 }
 
 static int decimal_sub(lua_State* L)
 {
-    return decimal_binop(L, luai_decsub);
+    return decimal_binop(L, decimal_subfast);
 }
 
 static int decimal_mul(lua_State* L)
 {
-    return decimal_binop(L, luai_decmul);
+    return decimal_binop(L, decimal_mulfast);
 }
 
 static int decimal_div(lua_State* L)

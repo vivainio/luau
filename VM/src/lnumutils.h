@@ -146,6 +146,42 @@ LUAI_FUNC int luai_decdiv(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, i
 LUAI_FUNC int luai_decrem(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
 LUAI_FUNC int luai_deccmp(int64_t ma, int ea, int64_t mb, int eb); // <0, 0 or >0
 
+// fast paths used by the interpreter and by luaV_doarith: same-scale add and subtract, and multiplication whose scale stays in range,
+// are exact when the result fits in the mantissa. They return false for everything else (different scales, rounding, overflow) and the
+// caller falls back to the general functions above. The result is never INT64_MIN, since the mantissa is always in the symmetric range.
+static inline bool luai_decaddfast(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+{
+    int64_t r;
+    if (ea != eb || __builtin_add_overflow(ma, mb, &r) || r == INT64_MIN)
+        return false;
+
+    *om = r;
+    *oe = ea;
+    return true;
+}
+
+static inline bool luai_decsubfast(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+{
+    int64_t r;
+    if (ea != eb || __builtin_sub_overflow(ma, mb, &r) || r == INT64_MIN)
+        return false;
+
+    *om = r;
+    *oe = ea;
+    return true;
+}
+
+static inline bool luai_decmulfast(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+{
+    int64_t r;
+    if (ea + eb < -28 || __builtin_mul_overflow(ma, mb, &r) || r == INT64_MIN)
+        return false;
+
+    *om = r;
+    *oe = ea + eb;
+    return true;
+}
+
 // equality is numeric: 2.50 == 2.5
 #define luai_deceq(m1, e1, m2, e2) ((e1) == (e2) ? (m1) == (m2) : luai_deccmp((m1), (e1), (m2), (e2)) == 0)
 
