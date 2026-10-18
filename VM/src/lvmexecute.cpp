@@ -14,6 +14,7 @@
 #include "ldo.h"
 #include "lbuiltins.h"
 #include "lnumutils.h"
+#include "ldecfast.h"
 #include "lbytecode.h"
 
 #include <string.h>
@@ -1457,6 +1458,11 @@ reentry:
                         VM_ASSERT_PC(pc);
                         VM_NEXT();
 
+                    case LUA_TDECIMAL:
+                        pc += luaO_deceq(ra, rb) ? LUAU_INSN_D(insn) : 1;
+                        VM_ASSERT_PC(pc);
+                        VM_NEXT();
+
                     default:
                         LUAU_ASSERT(!"Unknown value type");
                         LUAU_UNREACHABLE(); // improves switch() codegen by eliding opcode bounds checks
@@ -1590,6 +1596,11 @@ reentry:
                         VM_ASSERT_PC(pc);
                         VM_NEXT();
 
+                    case LUA_TDECIMAL:
+                        pc += !luaO_deceq(ra, rb) ? LUAU_INSN_D(insn) : 1;
+                        VM_ASSERT_PC(pc);
+                        VM_NEXT();
+
                     default:
                         LUAU_ASSERT(!"Unknown value type");
                         LUAU_UNREACHABLE(); // improves switch() codegen by eliding opcode bounds checks
@@ -1627,6 +1638,13 @@ reentry:
                     VM_ASSERT_PC(pc);
                     VM_NEXT();
                 }
+                // fast-path: decimals with the same scale
+                else if (ttisdecimal(ra) && ttisdecimal(rb) && luaO_decsamescale(ra, rb))
+                {
+                    pc += luaO_deccmpsame(ra, rb) <= 0 ? LUAU_INSN_D(insn) : 1;
+                    VM_ASSERT_PC(pc);
+                    VM_NEXT();
+                }
                 // fast-path: string
                 else if (ttisstring(ra) && ttisstring(rb))
                 {
@@ -1657,6 +1675,13 @@ reentry:
                 if (LUAU_LIKELY(ttisnumber(ra) && ttisnumber(rb)))
                 {
                     pc += !(nvalue(ra) <= nvalue(rb)) ? LUAU_INSN_D(insn) : 1;
+                    VM_ASSERT_PC(pc);
+                    VM_NEXT();
+                }
+                // fast-path: decimals with the same scale
+                else if (ttisdecimal(ra) && ttisdecimal(rb) && luaO_decsamescale(ra, rb))
+                {
+                    pc += !(luaO_deccmpsame(ra, rb) <= 0) ? LUAU_INSN_D(insn) : 1;
                     VM_ASSERT_PC(pc);
                     VM_NEXT();
                 }
@@ -1693,6 +1718,13 @@ reentry:
                     VM_ASSERT_PC(pc);
                     VM_NEXT();
                 }
+                // fast-path: decimals with the same scale
+                else if (ttisdecimal(ra) && ttisdecimal(rb) && luaO_decsamescale(ra, rb))
+                {
+                    pc += luaO_deccmpsame(ra, rb) < 0 ? LUAU_INSN_D(insn) : 1;
+                    VM_ASSERT_PC(pc);
+                    VM_NEXT();
+                }
                 // fast-path: string
                 else if (ttisstring(ra) && ttisstring(rb))
                 {
@@ -1723,6 +1755,13 @@ reentry:
                 if (LUAU_LIKELY(ttisnumber(ra) && ttisnumber(rb)))
                 {
                     pc += !(nvalue(ra) < nvalue(rb)) ? LUAU_INSN_D(insn) : 1;
+                    VM_ASSERT_PC(pc);
+                    VM_NEXT();
+                }
+                // fast-path: decimals with the same scale
+                else if (ttisdecimal(ra) && ttisdecimal(rb) && luaO_decsamescale(ra, rb))
+                {
+                    pc += !(luaO_deccmpsame(ra, rb) < 0) ? LUAU_INSN_D(insn) : 1;
                     VM_ASSERT_PC(pc);
                     VM_NEXT();
                 }
@@ -1762,6 +1801,10 @@ reentry:
                     const LUA_VECTOR_TYPE* vb = vvalue(rb);
                     const LUA_VECTOR_TYPE* vc = vvalue(rc);
                     setvvalue(L, ra, vb[0] + vc[0], vb[1] + vc[1], vb[2] + vc[2], vb[3] + vc[3]);
+                    VM_NEXT();
+                }
+                else if (ttisdecimal(rb) && ttisdecimal(rc) && luaO_decaddsubfast(ra, rb, rc, false))
+                {
                     VM_NEXT();
                 }
                 else
@@ -1810,6 +1853,10 @@ reentry:
                     setvvalue(L, ra, vb[0] - vc[0], vb[1] - vc[1], vb[2] - vc[2], vb[3] - vc[3]);
                     VM_NEXT();
                 }
+                else if (ttisdecimal(rb) && ttisdecimal(rc) && luaO_decaddsubfast(ra, rb, rc, true))
+                {
+                    VM_NEXT();
+                }
                 else
                 {
                     // fast-path for userdata with C functions
@@ -1847,6 +1894,10 @@ reentry:
                 if (LUAU_LIKELY(ttisnumber(rb) && ttisnumber(rc)))
                 {
                     setnvalue(ra, nvalue(rb) * nvalue(rc));
+                    VM_NEXT();
+                }
+                else if (ttisdecimal(rb) && ttisdecimal(rc) && luaO_decmulfast(ra, rb, rc))
+                {
                     VM_NEXT();
                 }
                 else if (ttisvector(rb) && ttisnumber(rc))

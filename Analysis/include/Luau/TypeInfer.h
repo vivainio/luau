@@ -478,6 +478,7 @@ public:
     const TypeId nilType;
     const TypeId numberType;
     const TypeId integerType;
+    const TypeId decimalType;
     const TypeId stringType;
     const TypeId booleanType;
     const TypeId threadType;

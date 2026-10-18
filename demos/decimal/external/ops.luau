@@ -1,0 +1,20 @@
+local N = 1000000
+local function bench(label, iterations, f)
+    f(1000)
+    local t = os.clock()
+    f(iterations)
+    local ns = (os.clock() - t) * 1e9 / iterations
+    print(string.format("%s\t%.2f", label, ns))
+end
+bench("number: x += 0.01", N * 10, function(n) local x = 0 for i = 1, n do x += 0.01 end return x end)
+bench("D: x += step", N, function(n) local x, y = D"0", D"0.01" for i = 1, n do x = x + y end return x end)
+bench("D: x + y, scales 1 and 2", N, function(n) local x, y, r = D"1.5", D"0.25", D"0" for i = 1, n do r = x + y end return r end)
+bench("D: x < y", N, function(n) local x, y, c = D"1", D"2", 0 for i = 1, n do if x < y then c += 1 end end return c end)
+bench("D: x == y", N, function(n) local x, y, c = D"1", D"1.0", 0 for i = 1, n do if x == y then c += 1 end end return c end)
+bench("D: round(x * 1.01, 2)", N // 10, function(n) local x, k, one = D"1", D"1.01", D"1000" for i = 1, n do x = (x * k):round(2) if x > one then x = D"1" end end return x end)
+bench("D: x += y / 3", N // 10, function(n) local x, y, three = D"0", D"1", D"3" for i = 1, n do x = x + y / three end return x end)
+local arr = table.create(1000000, D"0.01")
+bench("D: sum an array (D.sum)", 1000000, function(n) local s = D.sum(arr) return s end)
+bench("D: sum an array (loop)", 1000000, function(n) local s = D"0" for _, v in arr do s = s + v end return s end)
+bench("D: D\"19.99\" parse", N, function(n) local r for i = 1, n do r = D"19.99" end return r end)
+bench("D: tostring(x)", N // 10, function(n) local x, r = D"19.99", "" for i = 1, n do r = tostring(x) end return r end)

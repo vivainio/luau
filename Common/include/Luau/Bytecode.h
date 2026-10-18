@@ -556,6 +556,7 @@ enum LuauBytecodeTag
     LBC_CONSTANT_INTEGER,
     LBC_CONSTANT_CLASS_SHAPE,
     LBC_CONSTANT_VECTORD,
+    LBC_CONSTANT_DECIMAL, // sign byte, varint64 high and low halves of the mantissa magnitude (a 90-bit number), varint scale
 
     /** WARNING: This must always be last. */
     LBC_CONSTANT__COUNT

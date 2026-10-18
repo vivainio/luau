@@ -42,7 +42,7 @@ namespace Luau
 
 static bool typeCouldHaveMetatable(TypeId ty)
 {
-    return get<TableType>(follow(ty)) || get<ExternType>(follow(ty)) || get<MetatableType>(follow(ty));
+    return get<TableType>(follow(ty)) || get<ExternType>(follow(ty)) || get<MetatableType>(follow(ty)) || isDecimal(follow(ty));
 }
 
 static void defaultLuauPrintLine(const std::string& s)
@@ -219,6 +219,7 @@ TypeChecker::TypeChecker(const ScopePtr& globalScope, ModuleResolver* resolver, 
     , nilType(builtinTypes->nilType)
     , numberType(builtinTypes->numberType)
     , integerType(builtinTypes->integerType)
+    , decimalType(builtinTypes->decimalType)
     , stringType(builtinTypes->stringType)
     , booleanType(builtinTypes->booleanType)
     , threadType(builtinTypes->threadType)
@@ -1954,6 +1955,8 @@ WithPredicate<TypeId> TypeChecker::checkExpr(const ScopePtr& scope, const AstExp
         result = WithPredicate{numberType};
     else if (expr.is<AstExprConstantInteger>())
         result = WithPredicate{integerType};
+    else if (expr.is<AstExprConstantDecimal>())
+        result = WithPredicate{decimalType};
     else if (auto a = expr.as<AstExprLocal>())
         result = checkExpr(scope, *a);
     else if (auto a = expr.as<AstExprGlobal>())
@@ -2858,7 +2861,12 @@ TypeId TypeChecker::checkRelationalOperation(
          * have a better, more descriptive error teed up.
          */
         Unifier state = mkUnifier(scope, expr.location);
-        if (!isEquality)
+
+        // decimals can be ordered against integers, which are unrelated types
+        const bool isDecimalIntegerOrdering = (isDecimal(follow(lhsType)) && (isDecimal(follow(rhsType)) || isInteger(follow(rhsType)))) ||
+                                              (isInteger(follow(lhsType)) && isDecimal(follow(rhsType)));
+
+        if (!isEquality && !isDecimalIntegerOrdering)
         {
             state.tryUnify(rhsType, lhsType);
             state.log.commit();
@@ -6601,6 +6609,8 @@ void TypeChecker::resolve(const TypeGuardPredicate& typeguardP, RefinementMap& r
         return refine(isNumber, numberType);
     else if (typeguardP.kind == "integer")
         return refine(isInteger, integerType);
+    else if (typeguardP.kind == "decimal")
+        return refine(isDecimal, decimalType);
     else if (typeguardP.kind == "boolean")
         return refine(isBoolean, booleanType);
     else if (typeguardP.kind == "thread")

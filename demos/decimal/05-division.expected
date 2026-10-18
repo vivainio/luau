@@ -1,0 +1,68 @@
+
+== exact quotients ==
+6d / 2d                            3
+1d / 2d                            0.5
+1d / 8d                            0.125
+10d / 4d                           2.5
+100d / 0.5d                        200
+9d / 3d                            3
+-1d / 4d                           -0.25
+1d / -4d                           -0.25
+-1d / -4d                          0.25
+
+== preferred scale keeps what the operands had ==
+1.0d / 2d                          0.5
+1.00d / 2d                         0.50
+1.000d / 2d                        0.500
+7.50d / 2.5d                       3.0
+1.50d / 0.5d                       3.0
+2.50d / 1.25d                      2
+12.5d / 0.25d                      50
+0.00d / 5d                         0.00
+0d / 5d                            0
+
+== quotients that do not terminate ==
+1d / 3d                            0.333333333333333333333333333
+2d / 3d                            0.666666666666666666666666667
+-1d / 3d                           -0.333333333333333333333333333
+1d / 7d                            0.142857142857142857142857143
+100d / 3d                          33.3333333333333333333333333
+0.5d / 3d                          0.166666666666666666666666667
+1.000d / 3d                        0.333333333333333333333333333
+22d / 7d                           3.14285714285714285714285714
+123456789.123456789d / 7d          17636684.160493827
+1d / 9223372036854775807d          0.0000000000000000001084202172
+
+== remainder takes the sign of the dividend ==
+7d % 3d                            1
+-7d % 3d                           -1
+7d % -3d                           1
+-7d % -3d                          -1
+7.5d % 2d                          1.5
+5.25d % 0.5d                       0.25
+5d % 0.50d (scale 2)               0.00
+10d % 5d                           0
+0.3d % 0.1d (exact, unlike 0.3 % 0.1) 0.0
+number: 0.3 % 0.1                  0.09999999999999998
+
+== division and remainder go together ==
+17.5d / 4d (truncated)             4
+17.5d % 4d                         1.5
+q * b + r == a                     true
+
+== function forms ==
+decimal.div(10d, 4d)               2.5
+decimal.rem(10d, 4d)               2
+decimal.div(1i, 8i)                0.125
+
+== division by zero ==
+1d / 0d                            error: decimal division by zero
+0d / 0d                            error: decimal division by zero
+1d % 0d                            error: decimal division by zero
+1d / 0.00d                         error: decimal division by zero
+decimal.div(1d, 0d)                error: decimal division by zero
+
+== not defined ==
+5d // 2d                           error: attempt to perform arithmetic (idiv) on decimal
+2d ^ 3d                            error: attempt to perform arithmetic (pow) on decimal
+use trunc for a floor-style quotient 2

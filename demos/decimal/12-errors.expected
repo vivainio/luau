@@ -1,0 +1,79 @@
+
+== arithmetic ==
+overflow (add)                     error: decimal overflow
+overflow (mul)                     error: decimal overflow
+overflow (neg is fine)             ok: 1237940039285380274899124223
+division by zero                   error: decimal division by zero
+remainder by zero                  error: decimal division by zero
+floor division                     error: attempt to perform arithmetic (idiv) on decimal
+exponent                           error: attempt to perform arithmetic (pow) on decimal
+with a number                      error: attempt to perform arithmetic (add) on decimal and number
+with a number (left)               error: attempt to perform arithmetic (mul) on number and decimal
+with a string                      error: attempt to perform arithmetic (add) on decimal and string
+with nil                           error: attempt to perform arithmetic (add) on decimal and nil
+with a table                       error: attempt to perform arithmetic (sub) on decimal and table
+with a function                    error: attempt to perform arithmetic (mul) on decimal and function
+unary minus on a number is fine    ok: -1
+length                             error: attempt to get length of a decimal value
+
+== comparison ==
+decimal < number                   error: attempt to compare decimal < number
+number <= decimal                  error: attempt to compare number <= decimal
+decimal < string                   error: attempt to compare decimal < string
+decimal < nil                      error: attempt to compare decimal < nil
+decimal < table                    error: attempt to compare decimal < table
+equality never errors              ok: false
+
+== strings ==
+concat right                       error: attempt to concatenate string with decimal
+concat left                        error: attempt to concatenate decimal with string
+concat number                      error: attempt to concatenate number with decimal
+string.format %s                   error: invalid argument #2 to 'format' (string expected, got decimal)
+string.format %d                   error: invalid argument #2 to 'format' (number expected, got decimal)
+tostring is fine                   ok: 1.5
+
+== indexing and calling ==
+index                              error: attempt to index decimal with 'foo'
+method call                        error: attempt to index decimal with 'foo'
+newindex                           error: attempt to index decimal with 'foo'
+call                               error: attempt to call a decimal value
+table key                          error: table index is a decimal
+table key via rawset               error: table index is a decimal
+table key in constructor           error: table index is a decimal
+table read is fine                 ok: nil
+next with decimal key              error: invalid key to 'next'
+
+== library arguments ==
+add(1, 2d)                         error: invalid argument #1 to 'add' (decimal expected, got number)
+add(1d)                            error: missing argument #2 to 'add' (decimal expected)
+add()                              error: missing argument #1 to 'add' (decimal expected)
+add('1', 2d)                       error: invalid argument #1 to 'add' (decimal expected, got string)
+tonumber(1)                        error: invalid argument #1 to 'tonumber' (decimal expected, got number)
+tostring({})                       error: invalid argument #1 to 'tostring' (decimal expected, got table)
+round(1d, 29)                      error: invalid argument #2 to 'round' (number of places out of range [0, 28])
+round(1d, -1)                      error: invalid argument #2 to 'round' (number of places out of range [0, 28])
+round(1d, 'x')                     error: invalid argument #2 to 'round' (number expected, got string)
+round(1d, 0, 'up')                 error: invalid argument #3 to 'round' (invalid rounding mode, expected 'halfeven', 'awayfromzero', 'tozero', 'tonegativeinfinity' or 'topositiveinfinity')
+round(1d, 0, 5)                    error: invalid argument #3 to 'round' (invalid rounding mode, expected 'halfeven', 'awayfromzero', 'tozero', 'tonegativeinfinity' or 'topositiveinfinity')
+max()                              error: missing argument #1 to 'max' (decimal expected)
+min(1d, 'x')                       error: invalid argument #2 to 'min' (decimal expected, got string)
+create({})                         error: invalid argument #1 to 'create' (number, integer, string or decimal expected, got table)
+create(true)                       error: invalid argument #1 to 'create' (number, integer, string or decimal expected, got boolean)
+fromstring(5)                      ok: 5
+fromstring()                       error: missing argument #1 to 'fromstring' (string expected)
+scale('x')                         error: invalid argument #1 to 'scale' (decimal expected, got string)
+
+== not errors, but nil ==
+create(0/0)                        ok: nil
+create(1e30)                       ok: nil
+fromstring('abc')                  ok: nil
+fromstring('1e500')                ok: nil
+
+== syntax errors ==
+return 1.2.3d                      Malformed decimal
+return 1ed                         Malformed decimal
+return 1237940039285380274899124224d Decimal literal is out of range
+return 1e30d                       Decimal literal is out of range
+return 0.00000000000000000000000000001d Decimal literal is out of range
+return 1d2                         Malformed number
+return 0xd                         compiles

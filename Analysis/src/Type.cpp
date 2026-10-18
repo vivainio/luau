@@ -195,6 +195,11 @@ bool isInteger(TypeId ty)
     return isPrim(ty, PrimitiveType::Integer);
 }
 
+bool isDecimal(TypeId ty)
+{
+    return isPrim(ty, PrimitiveType::Decimal);
+}
+
 // Returns true when ty is a subtype of string
 bool isString(TypeId ty)
 {
@@ -295,6 +300,12 @@ std::optional<TypeId> getMetatable(TypeId type, NotNull<BuiltinTypes> builtinTyp
         auto ptv = get<PrimitiveType>(builtinTypes->stringType);
         LUAU_ASSERT(ptv && ptv->metatable);
         return ptv->metatable;
+    }
+    else if (isDecimal(type))
+    {
+        // the decimal metatable declares its operators and is set up by registerBuiltinGlobals
+        auto ptv = get<PrimitiveType>(builtinTypes->decimalType);
+        return ptv ? ptv->metatable : std::nullopt;
     }
 
     return std::nullopt;
@@ -847,6 +858,7 @@ BuiltinTypes::BuiltinTypes()
     , nilType(arena->addType(Type{PrimitiveType{PrimitiveType::NilType}, /*persistent*/ true}))
     , numberType(arena->addType(Type{PrimitiveType{PrimitiveType::Number}, /*persistent*/ true}))
     , integerType(arena->addType(Type{PrimitiveType{PrimitiveType::Integer}, /*persistent*/ true}))
+    , decimalType(arena->addType(Type{PrimitiveType{PrimitiveType::Decimal}, /*persistent*/ true}))
     , stringType(arena->addType(Type{PrimitiveType{PrimitiveType::String}, /*persistent*/ true}))
     , booleanType(arena->addType(Type{PrimitiveType{PrimitiveType::Boolean}, /*persistent*/ true}))
     , threadType(arena->addType(Type{PrimitiveType{PrimitiveType::Thread}, /*persistent*/ true}))

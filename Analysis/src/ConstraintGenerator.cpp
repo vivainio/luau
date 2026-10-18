@@ -3309,6 +3309,8 @@ Inference ConstraintGenerator::check(const ScopePtr& scope, AstExpr* expr, std::
         result = Inference{builtinTypes->numberType};
     else if (expr->is<AstExprConstantInteger>())
         result = Inference{builtinTypes->integerType};
+    else if (expr->is<AstExprConstantDecimal>())
+        result = Inference{builtinTypes->decimalType};
     else if (auto boolExpr = expr->as<AstExprConstantBool>())
         result = check(scope, boolExpr, expectedType, forceSingleton);
     else if (expr->is<AstExprConstantNil>())
@@ -3922,6 +3924,8 @@ std::tuple<TypeId, TypeId, RefinementId> ConstraintGenerator::checkBinary(
             discriminantTy = builtinTypes->numberType;
         else if (typeguard->type == "integer")
             discriminantTy = builtinTypes->integerType;
+        else if (typeguard->type == "decimal")
+            discriminantTy = builtinTypes->decimalType;
         else if (typeguard->type == "boolean")
             discriminantTy = builtinTypes->booleanType;
         else if (typeguard->type == "thread")

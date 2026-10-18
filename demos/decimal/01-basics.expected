@@ -1,0 +1,34 @@
+
+== literals ==
+1.25d                              1.25
+100d                               100
+1e3d                               1000
+1.5e-3d                            0.0015
+1_000.50d                          1000.50
+0.1d                               0.1
+0d                                 0
+-1.5d                              -1.5
+0x1d (hex, not a decimal)          29
+
+== the type ==
+type(1.25d)                        decimal
+typeof(1.25d)                      decimal
+type(1.25)                         number
+type(1i)                           integer
+1.25d is a decimal                 true
+
+== printing and string building ==
+print / tostring                   19.99
+interpolation                      price is 19.99
+decimal.tostring                   19.99
+string.format with tostring        19.99 EUR
+scale is kept in the output        2.50 vs 2.5
+
+== library at a glance ==
+decimal library functions          abs add ceil create div floor fromstring le lt max min mul neg rem round scale sign sub tonumber tostring trunc
+
+== a first calculation ==
+subtotal                           59.97
+vat at 24%                         14.3928
+vat rounded to 2 places            14.39
+total                              74.36

@@ -363,6 +363,25 @@ int32_t BytecodeBuilder::addConstantInteger(int64_t value)
     return addConstant(k, c);
 }
 
+int32_t BytecodeBuilder::addConstantDecimal(DecimalMantissa mantissa, int exponent)
+{
+    Constant c = {Constant::Type_Decimal};
+    c.valueDecimal.mantissa = mantissa;
+    c.valueDecimal.exponent = exponent;
+
+    bool negative;
+    uint64_t hi, lo;
+    decimalMantissaSplit(mantissa, &negative, &hi, &lo);
+
+    ConstantKey k = {Constant::Type_Decimal};
+    k.value = lo;
+    k.extra1 = hi;
+    k.extra2 = negative;
+    k.extra3 = uint64_t(int64_t(exponent));
+
+    return addConstant(k, c);
+}
+
 int32_t BytecodeBuilder::addConstantVectorf(float x, float y, float z, float w)
 {
     Constant c = {Constant::Type_Vectorf};
@@ -928,6 +947,20 @@ void BytecodeBuilder::writeFunction(std::string& ss, uint32_t id, uint8_t flags,
                 writeVarInt(ss, c.valueInteger64);
             }
             break;
+
+        case Constant::Type_Decimal:
+        {
+            bool negative;
+            uint64_t hi, lo;
+            decimalMantissaSplit(c.valueDecimal.mantissa, &negative, &hi, &lo);
+
+            writeByte(ss, LBC_CONSTANT_DECIMAL);
+            writeByte(ss, negative ? 1 : 0);
+            writeVarInt(ss, hi);
+            writeVarInt(ss, lo);
+            writeVarInt(ss, uint32_t(-c.valueDecimal.exponent)); // the exponent is the negated scale and never positive
+            break;
+        }
 
         case Constant::Type_Vectorf:
             writeByte(ss, LBC_CONSTANT_VECTOR);
@@ -2372,6 +2405,13 @@ void BytecodeBuilder::dumpConstant(std::string& result, int k, bool detailed) co
         break;
     case Constant::Type_Integer:
         formatAppend(result, "%lld", (long long)(int64_t)data.valueInteger64);
+        break;
+    case Constant::Type_Decimal:
+    {
+        char digits[48];
+        decimalMantissaToString(digits, data.valueDecimal.mantissa);
+        formatAppend(result, "%sE%dd", digits, (int)data.valueDecimal.exponent);
+    }
         break;
     case Constant::Type_Vectorf:
         // 3-vectors is the most common configuration, so truncate to three components if possible

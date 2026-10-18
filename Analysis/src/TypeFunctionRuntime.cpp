@@ -442,6 +442,8 @@ static std::string getTag(lua_State* L, TypeFunctionTypeId ty)
         return "number";
     else if (auto n = get<TypeFunctionPrimitiveType>(ty); n && (FFlag::LuauIntegerType2 && (n->type == TypeFunctionPrimitiveType::Type::Integer)))
         return "integer";
+    else if (auto d = get<TypeFunctionPrimitiveType>(ty); d && d->type == TypeFunctionPrimitiveType::Type::Decimal)
+        return "decimal";
     else if (auto s = get<TypeFunctionPrimitiveType>(ty); s && s->type == TypeFunctionPrimitiveType::Type::String)
         return "string";
     else if (auto s = get<TypeFunctionPrimitiveType>(ty); s && s->type == TypeFunctionPrimitiveType::Type::Thread)
@@ -516,6 +518,15 @@ static int createBoolean(lua_State* L)
 static int createNumber(lua_State* L)
 {
     allocTypeUserData(L, TypeFunctionPrimitiveType{TypeFunctionPrimitiveType::Number});
+
+    return 1;
+}
+
+// Luau: `type.decimal`
+// Returns the type instance representing decimal
+static int createDecimal(lua_State* L)
+{
+    allocTypeUserData(L, TypeFunctionPrimitiveType{TypeFunctionPrimitiveType::Decimal});
 
     return 1;
 }
@@ -1974,6 +1985,9 @@ void registerTypesLibrary(lua_State* L)
         lua_setfield(L, -2, "integer");
     }
 
+    createDecimal(L);
+    lua_setfield(L, -2, "decimal");
+
     lua_pop(L, 1);
 }
 
@@ -2671,6 +2685,9 @@ private:
                 break;
             case TypeFunctionPrimitiveType::Integer:
                 target = typeFunctionRuntime->typeArena.allocate(TypeFunctionPrimitiveType(TypeFunctionPrimitiveType::Integer));
+                break;
+            case TypeFunctionPrimitiveType::Decimal:
+                target = typeFunctionRuntime->typeArena.allocate(TypeFunctionPrimitiveType(TypeFunctionPrimitiveType::Decimal));
                 break;
             case TypeFunctionPrimitiveType::String:
                 target = typeFunctionRuntime->typeArena.allocate(TypeFunctionPrimitiveType(TypeFunctionPrimitiveType::String));

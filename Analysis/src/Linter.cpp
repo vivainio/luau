@@ -119,6 +119,7 @@ static bool similar(AstExpr* lhs, AstExpr* rhs)
     CASE(AstExprConstantBool) return le->value == re->value;
     CASE(AstExprConstantNumber) return le->value == re->value;
     CASE(AstExprConstantInteger) return le->value == re->value;
+    CASE(AstExprConstantDecimal) return le->mantissa == re->mantissa && le->exponent == re->exponent;
     CASE(AstExprConstantString) return le->value.size == re->value.size && memcmp(le->value.data, re->value.data, le->value.size) == 0;
     CASE(AstExprLocal) return le->local == re->local;
     CASE(AstExprGlobal) return le->name == re->name;
@@ -1174,7 +1175,7 @@ private:
     TypeKind getTypeKind(const std::string& name)
     {
         if (name == "nil" || name == "boolean" || name == "userdata" || name == "number" || name == "string" || name == "table" ||
-            name == "function" || name == "thread" || name == "buffer")
+            name == "function" || name == "thread" || name == "buffer" || name == "decimal")
             return Kind_Primitive;
 
         if (name == "vector")

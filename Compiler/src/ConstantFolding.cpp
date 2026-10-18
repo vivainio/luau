@@ -50,6 +50,23 @@ static bool constantsEqual(const Constant& la, const Constant& ra)
     case Constant::Type_Table:
         return ra.type == Constant::Type_Table && la.valueTable == ra.valueTable;
 
+    case Constant::Type_Decimal:
+    {
+        if (ra.type != Constant::Type_Decimal)
+            return false;
+
+        // decimals are equal if they are numerically equal, regardless of scale (1.50d == 1.5d)
+        DecimalMantissa lm = la.valueDecimal.mantissa, rm = ra.valueDecimal.mantissa;
+        int le = la.valueDecimal.exponent, re = ra.valueDecimal.exponent;
+
+        while (lm != 0 && lm % 10 == 0)
+            lm /= 10, le++;
+        while (rm != 0 && rm % 10 == 0)
+            rm /= 10, re++;
+
+        return lm == rm && (lm == 0 || le == re);
+    }
+
     case Constant::Type_Integer:
         if (FFlag::LuauIntegerType2)
             return ra.type == Constant::Type_Integer && la.valueInteger64 == ra.valueInteger64;
@@ -879,6 +896,12 @@ struct ConstantVisitor : AstVisitor
         {
             result.type = Constant::Type_Integer;
             result.valueInteger64 = expr->value;
+        }
+        else if (AstExprConstantDecimal* expr = node->as<AstExprConstantDecimal>())
+        {
+            result.type = Constant::Type_Decimal;
+            result.valueDecimal.mantissa = expr->mantissa;
+            result.valueDecimal.exponent = expr->exponent;
         }
         else if (AstExprConstantString* expr = node->as<AstExprConstantString>())
         {

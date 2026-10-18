@@ -25,6 +25,7 @@
 #include <string_view>
 
 LUAU_FASTFLAG(LuauCyclicRequireTypeInference)
+LUAU_FASTFLAG(LuauIntegerType2)
 LUAU_FASTFLAG(LuauDoesCallErrorUnwrapsGroups)
 LUAU_FASTFLAG(DebugLuauExactTableTypes)
 
@@ -1164,6 +1165,41 @@ bool MagicPcall::infer(const MagicFunctionCallContext& ctx)
     asMutable(ctx.result)->ty.emplace<BoundTypePack>(res);
 
     return true;
+}
+
+// Operators between decimals (and between decimals and integers) produce decimals; mixing decimals with numbers is an error
+TypeId makeDecimalMetatable(NotNull<BuiltinTypes> builtinTypes)
+{
+    TypeArena& arena = *builtinTypes->arena;
+    const TypeId decimalTy = builtinTypes->decimalType;
+    const TypeId integerTy = builtinTypes->integerType;
+
+    TypeId metatableTy = arena.addType(TableType{{}, std::nullopt, TypeLevel{}, TableState::Sealed});
+    TableType* metatable = Luau::getMutable<TableType>(metatableTy);
+
+    auto overloads = [&](TypeId result)
+    {
+        if (!FFlag::LuauIntegerType2)
+            return makeFunction(arena, std::nullopt, {decimalTy, decimalTy}, {result});
+
+        std::initializer_list<TypeId> fns{
+            makeFunction(arena, std::nullopt, {decimalTy, decimalTy}, {result}),
+            makeFunction(arena, std::nullopt, {decimalTy, integerTy}, {result}),
+            makeFunction(arena, std::nullopt, {integerTy, decimalTy}, {result}),
+        };
+        return makeIntersection(arena, fns);
+    };
+
+    metatable->props["__add"] = {overloads(decimalTy)};
+    metatable->props["__sub"] = {overloads(decimalTy)};
+    metatable->props["__mul"] = {overloads(decimalTy)};
+    metatable->props["__div"] = {overloads(decimalTy)};
+    metatable->props["__mod"] = {overloads(decimalTy)};
+    metatable->props["__unm"] = {makeFunction(arena, decimalTy, {}, {decimalTy})};
+    metatable->props["__lt"] = {overloads(builtinTypes->booleanType)};
+    metatable->props["__le"] = {overloads(builtinTypes->booleanType)};
+
+    return metatableTy;
 }
 
 TypeId makeStringMetatable(NotNull<BuiltinTypes> builtinTypes, SolverMode mode)

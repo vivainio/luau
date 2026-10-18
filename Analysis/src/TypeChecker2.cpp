@@ -1930,6 +1930,8 @@ void TypeChecker2::visit(AstExpr* expr, ValueContext context)
         return visit(e);
     else if (auto e = expr->as<AstExprConstantInteger>())
         return visit(e);
+    else if (auto e = expr->as<AstExprConstantDecimal>())
+        return visit(e);
     else if (auto e = expr->as<AstExprConstantString>())
         return visit(e);
     else if (auto e = expr->as<AstExprLocal>())
@@ -2009,6 +2011,18 @@ void TypeChecker2::visit(AstExprConstantNumber* expr)
 {
 #if defined(LUAU_ENABLE_ASSERT)
     const TypeId bestType = builtinTypes->numberType;
+    const TypeId inferredType = lookupType(expr);
+    NotNull<Scope> scope{FFlag::LuauDontUseInnermostScope ? stack.back() : findInnermostScope_DEPRECATED(expr->location)};
+
+    const SubtypingResult r = subtyping->isSubtype(bestType, inferredType, scope);
+    LUAU_ASSERT(r.isSubtype || isErrorSuppressing(expr->location, inferredType));
+#endif
+}
+
+void TypeChecker2::visit(AstExprConstantDecimal* expr)
+{
+#if defined(LUAU_ENABLE_ASSERT)
+    const TypeId bestType = builtinTypes->decimalType;
     const TypeId inferredType = lookupType(expr);
     NotNull<Scope> scope{FFlag::LuauDontUseInnermostScope ? stack.back() : findInnermostScope_DEPRECATED(expr->location)};
 
@@ -2834,6 +2848,8 @@ void TypeChecker2::visit(AstExprUnary* expr)
         // A negated integer literal is folded into one constant by the compiler, so it never negates anything.
         if (FFlag::LuauIntegerType2 && expr->expr->is<AstExprConstantInteger>())
             testIsSubtype(operandType, builtinTypes->integerType, expr->location);
+        else if (isDecimal(follow(operandType)))
+            testIsSubtype(operandType, builtinTypes->decimalType, expr->location);
         else
             testIsSubtype(operandType, builtinTypes->numberType, expr->location);
     }
@@ -2950,9 +2966,14 @@ TypeId TypeChecker2::visit(AstExprBinary* expr, AstNode* overrideKey)
 
     NormalizationResult typesHaveIntersection = normalizer.isIntersectionInhabited(leftType, rightType);
 
+    // decimals can be ordered against integers (but not numbers), even though the two types have no overlap
+    const bool isDecimalIntegerOrdering = isComparison && !isEquality &&
+                                          ((isDecimal(leftType) && (isDecimal(rightType) || isInteger(rightType))) ||
+                                           (isInteger(leftType) && isDecimal(rightType)));
+
     if (isEquality || isComparison)
     {
-        if (!isOkToCompare(normalizer, typesHaveIntersection, normLeft, normRight))
+        if (!isDecimalIntegerOrdering && !isOkToCompare(normalizer, typesHaveIntersection, normLeft, normRight))
         {
             reportError(CannotCompareUnrelatedTypes{leftType, rightType, expr->op}, expr->location);
             return builtinTypes->errorType;
@@ -3002,7 +3023,7 @@ TypeId TypeChecker2::visit(AstExprBinary* expr, AstNode* overrideKey)
         // TODO: Maybe add more checks here (e.g. for functions, extern typeArguments, etc)
         if (!(get<TableType>(leftType) || get<TableType>(rightType)))
             if (!leftMt.has_value() || !rightMt.has_value())
-                matches = matches || typesHaveIntersection != NormalizationResult::False;
+                matches = matches || typesHaveIntersection != NormalizationResult::False || isDecimalIntegerOrdering;
 
         if (!matches && isComparison)
         {

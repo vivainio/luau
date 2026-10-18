@@ -522,6 +522,22 @@ struct Printer
                 }
             }
         }
+        else if (const auto& a = expr.as<AstExprConstantDecimal>())
+        {
+            if (const auto cstNode = lookupCstNode<CstExprConstantDecimal>(a))
+            {
+                writer.literal(std::string_view(cstNode->value.data, cstNode->value.size));
+            }
+            else
+            {
+                // written as mantissa and exponent, which is always valid and exact
+                char digits[48];
+                decimalMantissaToString(digits, a->mantissa);
+                char buffer[100];
+                size_t len = snprintf(buffer, sizeof(buffer), "%sE%dd", digits, a->exponent);
+                writer.literal(std::string_view{buffer, len});
+            }
+        }
         else if (const auto& a = expr.as<AstExprConstantInteger>())
         {
             if (const auto cstNode = lookupCstNode<CstExprConstantInteger>(a))

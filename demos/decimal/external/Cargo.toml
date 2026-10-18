@@ -1,0 +1,13 @@
+[package]
+name = "mlua-decimal-compare"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Runs Luau scripts with the external mlua-decimal crate installed, so that it can be measured and compared with the core decimal type.
+[dependencies]
+mlua = "0.12.2"
+mlua-decimal = { git = "https://github.com/vivainio/mlua-decimal" }
+
+[profile.release]
+opt-level = 3

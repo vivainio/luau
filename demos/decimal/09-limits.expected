@@ -1,0 +1,68 @@
+
+== the largest and smallest values (the mantissa is 2^90 - 1 at most) ==
+1237940039285380274899124223d (max mantissa)         1237940039285380274899124223
+-1237940039285380274899124223d                       -1237940039285380274899124223
+12379400392853802748991242.23d (scale 2)             12379400392853802748991242.23
+0.1237940039285380274899124223d (scale 28)           0.1237940039285380274899124223
+0.0000000000000000000000000001d (smallest step)      0.0000000000000000000000000001
+9223372036854775807d (the old 64-bit limit)          9223372036854775807
+any 27 digit number fits                             999999999999999999999999999
+
+== literals that do not fit are syntax errors ==
+return 1237940039285380274899124224d                 Decimal literal is out of range
+return 9999999999999999999999999999d                 Decimal literal is out of range
+return 1e28d                                         Decimal literal is out of range
+return 1e30d                                         Decimal literal is out of range
+return 0.00000000000000000000000000001d              Decimal literal is out of range
+return 1e-29d                                        Decimal literal is out of range
+return 1.2.3d                                        Malformed decimal
+return 1ed                                           Malformed decimal
+
+== a result with too many digits is rounded, the scale drops ==
+12379400392853802748991242.23d + 0.01d               12379400392853802748991242.2
+12379400392853802748991242.23d + 0.001d              12379400392853802748991242.23
+12379400392853802748991242.23d + 0.1d                12379400392853802748991242.3
+0.1234567890123456789d * 1d                          0.1234567890123456789
+0.1234567890123456789d * 0.1234567890123456789d      0.0152415787532388367501905200
+9223372036854775.807d * 1.5d                         13835058055282163.7105
+1d / 3d                                              0.333333333333333333333333333
+1d / 3d * 3d                                         0.999999999999999999999999999
+
+== the scale is capped at 28 ==
+0.0000000000000001d * 0.0000000000000001d            0.0000000000000000000000000000
+0.00000000000000000001d * 0.00000000000000000001d    0.0000000000000000000000000000
+0.0000000000000001d * 0.000000000000000001d          0.0000000000000000000000000000
+1d / 9223372036854775807d                            0.0000000000000000001084202172
+decimal.create(1e-29)                                0.0000000000000000000000000000
+
+== overflow: a value that does not fit even at scale 0 ==
+1237940039285380274899124223d + 1d                   error: decimal overflow
+1237940039285380274899124223d * 2d                   error: decimal overflow
+1237940039285380274899124223d * 10d                  error: decimal overflow
+-1237940039285380274899124223d - 1d                  error: decimal overflow
+100000000000000d * 100000000000000d                  error: decimal overflow
+decimal.mul(10000000000000d, 100000000000000d) (10^27 fits) 1000000000000000000000000000
+1000000000000d * 1000000000000d (fits)               1000000000000000000000000
+1237940039285380274899124222d + 1d (fits)            1237940039285380274899124223
+a fraction can round away (…223.4 is …223)       1237940039285380274899124223
+but the integer part never does (…223.6 would need …224) error: decimal overflow
+
+== but digits can be traded for range ==
+123794003928538027489912422.3d + 0.1d                123794003928538027489912422
+123794003928538027489912422.3d * 10d                 1237940039285380274899124223
+123794003928538027489912422.3d * 100d                error: decimal overflow
+
+== remainder aligns both operands to a common scale first (256 bits, so it does not overflow) ==
+1d % 0.0000000000000000001d                          0.0000000000000000000
+1237940039285380274899124223d % 0.0000000000000000000000001d 0.0000000000000000000000000
+7d % 0.0000000000000000000000000003d                 0.0000000000000000000000000001
+
+== what 90 bits are good for ==
+largest amount with 2 decimals                       12379400392853802748991242.23
+largest amount with 4 decimals                       123794003928538027489912.4223
+largest amount with 8 decimals                       12379400392853802748.99124223
+largest amount with 18 decimals                      1237940039.285380274899124223
+one million tokens with 18 decimals                  1000000.000000000000000000
+plus one wei                                         1000000.000000000000000001
+a billion tokens still fits                          1000000000.000000000000000000
+ten billion tokens does not (fromstring gives nil)   10000000000.00000000000000000

@@ -481,6 +481,34 @@ declare integer: {
 
 )BUILTIN_SRC";
 
+static const char* const kBuiltinDefinitionDecimalSrc = R"BUILTIN_SRC(
+
+declare decimal: {
+    create: @checked (x: number | integer | string | decimal) -> decimal?,
+    fromstring: @checked (str: string) -> decimal?,
+    tostring: @checked (x: decimal) -> string,
+    tonumber: @checked (x: decimal) -> number,
+    neg: @checked (x: decimal | integer) -> decimal,
+    abs: @checked (x: decimal | integer) -> decimal,
+    sign: @checked (x: decimal | integer) -> number,
+    scale: @checked (x: decimal | integer) -> number,
+    add: @checked (x: decimal | integer, y: decimal | integer) -> decimal,
+    sub: @checked (x: decimal | integer, y: decimal | integer) -> decimal,
+    mul: @checked (x: decimal | integer, y: decimal | integer) -> decimal,
+    div: @checked (x: decimal | integer, y: decimal | integer) -> decimal,
+    rem: @checked (x: decimal | integer, y: decimal | integer) -> decimal,
+    round: @checked (x: decimal | integer, places: number, mode: string?) -> decimal,
+    floor: @checked (x: decimal | integer) -> decimal,
+    ceil: @checked (x: decimal | integer) -> decimal,
+    trunc: @checked (x: decimal | integer) -> decimal,
+    min: @checked (decimal | integer, ...(decimal | integer)) -> decimal,
+    max: @checked (decimal | integer, ...(decimal | integer)) -> decimal,
+    lt: @checked (x: decimal | integer, y: decimal | integer) -> boolean,
+    le: @checked (x: decimal | integer, y: decimal | integer) -> boolean,
+}
+
+)BUILTIN_SRC";
+
 static const char* kBuiltinDefinitionClassSrc = R"CLASS_SRC(
 declare class: {
     isinstance: @checked (o: unknown, c: class) -> boolean,
@@ -519,6 +547,21 @@ std::string getBuiltinDefinitionSource()
         result += kBuiltinDefinitionIntegerSrc;
     }
 
+    if (FFlag::LuauIntegerType2)
+    {
+        result += kBuiltinDefinitionDecimalSrc;
+    }
+    else
+    {
+        // the integer type is not available, so decimals can only be mixed with decimals
+        std::string decimalSrc = kBuiltinDefinitionDecimalSrc;
+        for (size_t pos = decimalSrc.find("number | integer | "); pos != std::string::npos; pos = decimalSrc.find("number | integer | "))
+            decimalSrc.replace(pos, 19, "number | ");
+        for (size_t pos = decimalSrc.find(" | integer"); pos != std::string::npos; pos = decimalSrc.find(" | integer"))
+            decimalSrc.erase(pos, 10);
+        result += decimalSrc;
+    }
+
     if (FFlag::DebugLuauUserDefinedClasses && FFlag::LuauAllowGlobalDeclarationToBeCalledClass)
     {
         result += kBuiltinDefinitionClassSrc;
@@ -531,7 +574,7 @@ std::string getBuiltinDefinitionSource()
 static constexpr const char* kBuiltinDefinitionTypeMethodSrc = R"BUILTIN_SRC(
 
 export type type = {
-    tag: "nil" | "unknown" | "never" | "any" | "boolean" | "number" | "integer" | "string" | "buffer" | "thread" |
+    tag: "nil" | "unknown" | "never" | "any" | "boolean" | "number" | "integer" | "decimal" | "string" | "buffer" | "thread" |
          "singleton" | "negation" | "union" | "intersection" | "table" | "function" | "extern" | "generic",
 
     is: (self: type, arg: string) -> boolean,
@@ -648,6 +691,7 @@ declare types: {
     thread: type,
     buffer: type,
     integer: type,
+    decimal: type,
 
     singleton: @checked (arg: string | boolean | nil) -> type,
     optional: @checked (arg: type) -> type,

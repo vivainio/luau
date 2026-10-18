@@ -1307,6 +1307,14 @@ TEST_CASE("Math")
     runConformance("math.luau");
 }
 
+TEST_CASE("Decimals")
+{
+    // decimals mix with integers, so the integer literal syntax must be available
+    ScopedFastFlag integerType{FFlag::LuauIntegerType2, true};
+
+    runConformance("decimal.luau");
+}
+
 TEST_CASE("Integers")
 {
     ScopedFastFlag ncgBufferInteger{FFlag::LuauCodegenBufferInteger, true};

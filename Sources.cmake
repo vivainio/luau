@@ -391,6 +391,7 @@ target_sources(Luau.VM PRIVATE
     VM/src/lbuiltins.cpp
     VM/src/lcorolib.cpp
     VM/src/ldblib.cpp
+    VM/src/ldeclib.cpp
     VM/src/ldebug.cpp
     VM/src/ldo.cpp
     VM/src/lfunc.cpp
@@ -547,6 +548,7 @@ if(TARGET Luau.UnitTest)
         tests/Sccp.test.cpp
         tests/ScopedFlags.h
         tests/Simplify.test.cpp
+        tests/DecimalMantissa.test.cpp
         tests/StringUtils.test.cpp
         tests/Subtyping.test.cpp
         tests/Symbol.test.cpp

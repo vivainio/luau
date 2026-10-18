@@ -656,6 +656,9 @@ struct TypeStringifier
         case PrimitiveType::Table:
             state.emit("table");
             return;
+        case PrimitiveType::Decimal:
+            state.emit("decimal");
+            return;
         case PrimitiveType::Integer:
             if (FFlag::LuauIntegerType2)
             {

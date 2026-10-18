@@ -477,6 +477,19 @@ int lua_toboolean(lua_State* L, int idx)
     return !l_isfalse(o);
 }
 
+int lua_todecimal(lua_State* L, int idx, int* negative, uint64_t* hi, uint64_t* lo, int* exponent)
+{
+    const TValue* o = index2addr(L, idx);
+    if (!ttisdecimal(o))
+        return 0;
+
+    bool neg;
+    decimalMantissaSplit(decmantissa(o), &neg, hi, lo);
+    *negative = neg;
+    *exponent = decexponent(o);
+    return 1;
+}
+
 int64_t lua_tointeger64(lua_State* L, int idx, int* isinteger)
 {
     const TValue* o = index2addr(L, idx);
@@ -705,6 +718,13 @@ void lua_pushinteger64(lua_State* L, int64_t n)
 {
     ensure_stack(L, 1);
     setlvalue(L->top, n);
+    api_incr_top(L);
+}
+
+void lua_pushdecimal(lua_State* L, int negative, uint64_t hi, uint64_t lo, int exponent)
+{
+    ensure_stack(L, 1);
+    setdecvalue(L->top, decimalMantissaJoin(negative != 0, hi, lo), exponent);
     api_incr_top(L);
 }
 

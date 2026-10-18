@@ -1,0 +1,75 @@
+
+== decimal and integer: arithmetic works in both orders ==
+d + i                              3.5
+i + d                              3.5
+d - i                              -0.5
+i - d                              0.5
+d * i                              3.0
+i * d                              3.0
+d / i                              0.75
+i / d                              1.33333333333333333333333333
+d % i                              1.5
+i % d                              0.5
+the result is always a decimal     decimal
+integer / integer stays an error   false
+
+== decimal and integer: ordering works in both orders ==
+d < i                              true
+d <= i                             true
+d > i                              false
+d >= i                             false
+i < d                              false
+i > d                              true
+2.00d <= 2i                        true
+2.00d >= 2i                        true
+big integer 9223372036854775807i > 1d true
+
+== equality is strict about types ==
+2d == 2i                           false
+2d ~= 2i                           true
+2d == 2                            false
+2i == 2                            false
+rawequal(2d, 2i)                   false
+convert first: 2d == decimal.create(2i) true
+2d <= 2i and 2d >= 2i              true
+
+== decimal and number: never implicit ==
+d + n                              error: attempt to perform arithmetic (add) on decimal and number
+n + d                              error: attempt to perform arithmetic (add) on number and decimal
+d * n                              error: attempt to perform arithmetic (mul) on decimal and number
+d / n                              error: attempt to perform arithmetic (div) on decimal and number
+d % n                              error: attempt to perform arithmetic (mod) on decimal and number
+d < n                              error: attempt to compare decimal < number
+n <= d                             error: attempt to compare number <= decimal
+-n then + d                        error: attempt to perform arithmetic (add) on decimal and number
+d == n (just false)                false
+convert explicitly                 3.5
+or go the other way                3.5
+
+== decimal and strings: no coercion either ==
+d + '1'                            error: attempt to perform arithmetic (add) on decimal and string
+'1' + d                            error: attempt to perform arithmetic (add) on string and decimal
+d .. 'x'                           error: attempt to concatenate decimal with string
+'x' .. d                           error: attempt to concatenate string with decimal
+d < '1'                            error: attempt to compare decimal < string
+tostring first                     x1.5
+
+== decimal and booleans, nil, tables ==
+d + true                           error: attempt to perform arithmetic (add) on decimal and boolean
+d + nil                            error: attempt to perform arithmetic (add) on decimal and nil
+d + {}                             error: attempt to perform arithmetic (add) on decimal and table
+d == nil                           false
+d == {}                            false
+not d                              false
+d and 'yes' or 'no'                yes
+0d is truthy                       truthy
+
+== the library accepts integers wherever it accepts decimals ==
+decimal.add(1i, 2i)                3
+decimal.min(3i, 2.5d, 4i)          2.5
+decimal.max(3i, 2.5d, 4i)          4
+decimal.floor(7i)                  7
+decimal.lt(1i, 1.5d)               true
+decimal.le(2i, 2.00d)              true
+decimal.scale(7i)                  0
+decimal.add(1, 2d)                 error: invalid argument #1 to 'add' (decimal expected, got number)
