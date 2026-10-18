@@ -1,0 +1,50 @@
+
+== an invoice ==
+Widget        19.99 x      3 =      59.97
+Gadget         4.95 x     12 =      59.40
+Gizmo         0.333 x    100 =     33.300
+Service          85 x    1.5 =      127.5
+net                                    280.170
+vat at 24% (unrounded)                 67.24080
+vat (rounded)                          67.24
+gross                                  347.410
+
+== round per line or round the total? ==
+sum of lines rounded to cents          1.23
+total rounded once                     1.24
+they differ                            true
+difference                             0.01
+
+== discounts and percentages ==
+price                                  249.90
+20% off                                199.920
+20% off, rounded                       199.92
+discount amount                        49.98
+price + 24% vat                        309.88
+price including vat, extract vat       48.37
+net from a gross price                 201.53
+
+== splitting a bill without losing a cent ==
+100 / 3                                33.34 + 33.33 + 33.33 = 100.00
+10 / 3                                 3.34 + 3.33 + 3.33 = 10.00
+0.05 / 3                               0.02 + 0.02 + 0.01 = 0.05
+99.99 / 3                              33.33 + 33.33 + 33.33 = 99.99
+naive 100 / 3 * 3 with doubles         100
+naive rounded thirds                   99.99
+
+== compound interest, rounded each month ==
+monthly rate                           0.004166666666666666667
+after 12 months                        10511.64
+same without rounding                  10511.61897881733191
+the closed form needs a power          not available: decimal has no ^
+
+== currency conversion ==
+250 EUR at 1.0873                      271.8250
+in cents                               271.82
+and back                               250.00
+
+== basis points and unit prices ==
+25 bps of 1,000,000                    2500
+price per kg for 0.35 kg costing 2.79  7.97
+price of 1 unit at 3 for 10            3.3333
+price of 3 units                       9.9999

@@ -80,6 +80,10 @@ assert(dec("+3.0") == dec("3"))
 assert(dec(".5") == dec("0.5"))
 assert(dec("5.") == dec("5"))
 assert(dec("-0") == dec("0"))
+assert(dec("  1.5  ") == dec("1.5")) -- surrounding whitespace is allowed
+assert(dec("\t-2.50\n") == dec("-2.50"))
+assert(dec(" ") == nil)
+assert(dec("1 2") == nil)
 assert(pcall(d.create, {}) == false)
 -- too many digits are rounded half-even
 assert(dec("0.1234567890123456789012345678901") == dec("0.1234567890123456789"))

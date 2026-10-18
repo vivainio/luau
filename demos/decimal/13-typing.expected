@@ -1,0 +1,27 @@
+./demos/decimal/13-typing.luau(13,22): TypeError: Expected this to be 'number', but got 'decimal'
+./demos/decimal/13-typing.luau(14,23): TypeError: Expected this to be 'decimal', but got 'number'
+./demos/decimal/13-typing.luau(31,14): TypeError: Operator '//' could not be applied to operands of types decimal and decimal; there is no corresponding overload for __idiv
+./demos/decimal/13-typing.luau(32,14): TypeError: Operator '^' could not be applied to operands of types decimal and decimal; there is no corresponding overload for __pow
+./demos/decimal/13-typing.luau(33,14): TypeError: Operator '#' could not be applied to operand of type decimal; there is no corresponding overload for __len
+./demos/decimal/13-typing.luau(33,14): TypeError: Expected type table, got 'decimal' instead
+./demos/decimal/13-typing.luau(34,14): TypeError: Operator '..' could not be applied to operands of types decimal and string; there is no corresponding overload for __concat
+./demos/decimal/13-typing.luau(35,14): TypeError: Operator '..' could not be applied to operands of types string and decimal; there is no corresponding overload for __concat
+./demos/decimal/13-typing.luau(46,14): TypeError: Operator '+' could not be applied to operands of types decimal and number; there is no corresponding overload for __add
+./demos/decimal/13-typing.luau(47,14): TypeError: Operator '+' could not be applied to operands of types number and decimal; there is no corresponding overload for __add
+./demos/decimal/13-typing.luau(48,14): TypeError: Operator '*' could not be applied to operands of types decimal and number; there is no corresponding overload for __mul
+./demos/decimal/13-typing.luau(49,14): TypeError: Cannot compare unrelated types 'decimal' and 'number' with '<'
+./demos/decimal/13-typing.luau(50,14): TypeError: Cannot compare unrelated types 'number' and 'decimal' with '<='
+./demos/decimal/13-typing.luau(51,22): TypeError: Expected this to be 'number', but got 'decimal'
+./demos/decimal/13-typing.luau(70,41): TypeError: Expected this to be 'number', but got 'string'
+./demos/decimal/13-typing.luau(71,39): TypeError: Expected this to be 'decimal | integer', but got 'number'
+./demos/decimal/13-typing.luau(72,39): TypeError: Expected this to be 'decimal | integer | number | string', but got 'boolean'
+./demos/decimal/13-typing.luau(72,24): TypeError: Expected this to be 'decimal', but got 'decimal?'; 
+`nil` is not a subtype of `decimal`
+./demos/decimal/13-typing.luau(73,23): TypeError: Expected this to be 'number', but got 'decimal?'; 
+this is because 
+	 * `decimal` is not a subtype of `number`
+	 * `nil` is not a subtype of `number`
+./demos/decimal/13-typing.luau(77,14): TypeError: Operator '+' could not be applied to operands of types decimal? and decimal; there is no corresponding overload for __add
+./demos/decimal/13-typing.luau(109,22): TypeError: Expected this to be 'decimal', but got 'number'
+./demos/decimal/13-typing.luau(109,25): TypeError: Expected this to be 'decimal', but got 'number'
+./demos/decimal/13-typing.luau(113,47): TypeError: Expected this to be 'decimal', but got 'number'

@@ -587,7 +587,14 @@ static int decimal_tonumber(lua_State* L)
 // accepts [+-]digits[.digits][(e|E)[+-]digits]; trailing zeros after the decimal point are kept
 static bool parsedec(const char* s, size_t n, wide& m, int& e)
 {
+    // surrounding whitespace is allowed, as in .NET's decimal.Parse
+    while (n > 0 && (s[n - 1] == ' ' || (s[n - 1] >= '\t' && s[n - 1] <= '\r')))
+        n--;
+
     size_t i = 0;
+    while (i < n && (s[i] == ' ' || (s[i] >= '\t' && s[i] <= '\r')))
+        i++;
+
     bool neg = false;
     if (i < n && (s[i] == '-' || s[i] == '+'))
         neg = s[i++] == '-';

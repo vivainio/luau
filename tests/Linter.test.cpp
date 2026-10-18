@@ -675,6 +675,20 @@ local _o03 = typeof(game) == "Part"
     CHECK_EQ(result.warnings[1].text, "Unknown type 'Bar'");
 }
 
+TEST_CASE_FIXTURE(Fixture, "UnknownTypeKnowsDecimal")
+{
+    LintResult result = lint(R"(
+local game = ...
+local _ok1 = type(game) == "decimal"
+local _ok2 = typeof(game) == "decimal"
+local _bad = typeof(game) == "decimall"
+)");
+
+    REQUIRE(1 == result.warnings.size());
+    CHECK_EQ(result.warnings[0].location.begin.line, 4);
+    CHECK_EQ(result.warnings[0].text, "Unknown type 'decimall'");
+}
+
 TEST_CASE_FIXTURE(Fixture, "ForRangeTable")
 {
     LintResult result = lint(R"(

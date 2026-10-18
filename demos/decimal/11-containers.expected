@@ -1,0 +1,61 @@
+
+== arrays and records ==
+prices                                   9.99, 0.5, 120, 3.10, 7
+record field                             1.20
+after += 0.05d                           1.25
+nested arithmetic                        12.50
+
+== sorting ==
+table.sort default order                 0.5, 3.10, 7, 9.99, 120
+descending                               120, 9.99, 7, 3.10, 0.5
+smallest first                           1.4
+the three equal values are adjacent      true
+sorted records                           b a c
+
+== aggregation ==
+sum                                      140.59
+min                                      0.5
+max                                      120
+average                                  28.118
+min(...) / max(...) variadic             0.5 120
+table.unpack                             5
+
+== tables of decimals as maps (values only) ==
+apple                                    0.75
+pear                                     0.75
+
+== decimals cannot be table keys ==
+t[1.5d] = 1                              error: table index is a decimal
+rawset(t, 1.5d, 1)                       error: table index is a decimal
+t[1.5d] (a read is just nil)             nil
+workaround: key by tostring              1
+note: tostring keeps the scale           false
+
+== table.find ==
+table.find(prices, 120d) (not supported yet) nil
+a loop with == works                     3
+
+== functions: arguments, returns, varargs, closures ==
+varargs sum                              6.6
+closure after 3 calls                    0.3
+multiple returns                         2.25, 5.5
+pcall passes decimals through            1.25
+coroutine passes decimals through        3.5
+
+== strings: no coercion, but interpolation works ==
+string.format('%s', d)                   error: invalid argument #2 to 'format' (string expected, got decimal)
+string.format('%d', d)                   error: invalid argument #2 to 'format' (number expected, got decimal)
+string.format('%.2f', d)                 error: invalid argument #2 to 'format' (number expected, got decimal)
+'total ' .. d                            error: attempt to concatenate string with decimal
+string.format with tostring              1.5
+interpolation                            total 1.5
+string.format('%.2f', tonumber(d))       1.50
+print(d) shows scale                     1.50
+
+== other library functions refuse decimals ==
+math.max(1d, 2d)                         error: invalid argument #1 to 'max' (number expected, got decimal)
+math.floor(1.5d)                         error: invalid argument #1 to 'floor' (number expected, got decimal)
+math.abs(-1d)                            error: invalid argument #1 to 'abs' (number expected, got decimal)
+tonumber(1.5d)                           nil
+#1.5d                                    error: attempt to get length of a decimal value
+select('#', 1.5d)                        1

@@ -1,0 +1,59 @@
+
+== the largest and smallest values ==
+9223372036854775807d (max mantissa)          9223372036854775807
+-9223372036854775807d                        -9223372036854775807
+92233720368547758.07d (scale 2)              92233720368547758.07
+0.9223372036854775807d (scale 19)            0.9223372036854775807
+0.0000000000000000000000000001d (scale 28)   0.0000000000000000000000000001
+9.223372036854775807d                        9.223372036854775807
+
+== literals that do not fit are syntax errors ==
+return 9223372036854775808d                  Decimal literal is out of range
+return 92233720368547758070d                 Decimal literal is out of range
+return 1e19d                                 Decimal literal is out of range
+return 1e30d                                 Decimal literal is out of range
+return 0.00000000000000000000000000001d      Decimal literal is out of range
+return 1e-29d                                Decimal literal is out of range
+return 1.2.3d                                Malformed decimal
+return 1ed                                   Malformed decimal
+
+== a result with too many digits is rounded, the scale drops ==
+92233720368547758.07d + 0.01d                92233720368547758.1
+92233720368547758.07d + 0.001d               92233720368547758.07
+92233720368547758.07d + 0.1d                 92233720368547758.2
+0.1234567890123456789d * 1d                  0.1234567890123456789
+0.1234567890123456789d * 0.1234567890123456789d 0.01524157875323883675
+9223372036854775.807d * 1.5d                 13835058055282163.71
+1d / 3d * 3d                                 1.000000000000000000
+
+== the scale is capped at 28 ==
+0.0000000000000001d * 0.0000000000000001d    0.0000000000000000000000000000
+0.0000000000000001d * 0.00000000000000001d   0.0000000000000000000000000000
+0.0000000000000001d * 0.000000000000000001d  0.0000000000000000000000000000
+1d / 9223372036854775807d                    0.0000000000000000001084202172
+decimal.create(1e-29)                        0.0000000000000000000000000000
+
+== overflow: a value that does not fit even at scale 0 ==
+9223372036854775807d + 1d                    error: decimal overflow
+9223372036854775807d * 2d                    error: decimal overflow
+9223372036854775807d * 10d                   error: decimal overflow
+-9223372036854775807d - 2d                   error: decimal overflow
+1000000000d * 1000000000d * 100d             error: decimal overflow
+decimal.mul(5000000000d, 5000000000d)        error: decimal overflow
+1000000000d * 1000000000d (fits)             1000000000000000000
+99999999999999999d + 1d (fits)               100000000000000000
+
+== but digits can be traded for range ==
+922337203685477580.7d + 0.1d                 922337203685477581
+922337203685477580.7d * 10d                  9223372036854775807
+922337203685477580.7d * 100d                 error: decimal overflow
+
+== remainder has its own limit: both operands scaled to a common scale ==
+1d % 0.0000000000000000001d                  0.0000000000000000000
+9223372036854775807d % 0.0000000000000000000000001d error: decimal overflow
+
+== what 63 bits are good for ==
+largest amount with 2 decimals               92233720368547758.07
+largest amount with 4 decimals               922337203685477.5807
+largest amount with 8 decimals               92233720368.54775807
+largest amount with 18 decimals              9.223372036854775807

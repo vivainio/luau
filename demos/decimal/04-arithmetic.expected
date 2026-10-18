@@ -1,0 +1,55 @@
+
+== addition and subtraction (scale = the larger scale) ==
+1.5d + 1.25d                       2.75
+1.50d + 1.5d                       3.00
+100d + 0.01d                       100.01
+0.1d + 0.2d                        0.3
+1d - 0.001d                        0.999
+0.3d - 0.1d - 0.2d                 0.0
+-1.5d + 1.5d                       0.0
+-1.5d - 1.5d                       -3.0
+12345678.9d + 0.01d                12345678.91
+
+== multiplication (scale = the sum of the scales) ==
+2d * 3d                            6
+1.5d * 2d                          3.0
+1.5d * 1.5d                        2.25
+19.99d * 3d                        59.97
+0.1d * 0.1d * 0.1d                 0.001
+-2d * 2.5d                         -5.0
+0d * 123.456d                      0.000
+1000000d * 1000000d                1000000000000
+0.5d * 0.5d * 0.5d * 0.5d          0.0625
+
+== negation ==
+-(1.50d)                           -1.50
+-(-1.5d)                           1.5
+-0d                                0
+decimal.neg(2.5d)                  -2.5
+decimal.abs(-3.10d)                3.10
+decimal.sign(-3.1d)                -1
+decimal.sign(0d)                   0
+decimal.sign(0.50d)                1
+
+== operator precedence works as for numbers ==
+1d + 2d * 3d                       7
+(1d + 2d) * 3d                     9
+10d - 2d - 3d                      5
+-2d * -3d                          6
+
+== compound assignment ==
+total after += -= *=               49.00
+
+== integers mix in implicitly ==
+1.5d + 2i                          3.5
+2i + 1.5d                          3.5
+3i * 0.5d                          1.5
+1.5d - 1i                          0.5
+10i - 0.25d                        9.75
+decimal.add(1i, 2.5d)              3.5
+decimal.mul(3i, 3i)                9
+
+== function forms ==
+decimal.add(1.1d, 2.2d)            3.3
+decimal.sub(1.1d, 2.2d)            -1.1
+decimal.mul(1.1d, 2.2d)            2.42
