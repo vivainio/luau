@@ -531,8 +531,10 @@ struct Printer
             else
             {
                 // written as mantissa and exponent, which is always valid and exact
+                char digits[48];
+                decimalMantissaToString(digits, a->mantissa);
                 char buffer[100];
-                size_t len = snprintf(buffer, sizeof(buffer), "%lldE%dd", (long long)a->mantissa, a->exponent);
+                size_t len = snprintf(buffer, sizeof(buffer), "%sE%dd", digits, a->exponent);
                 writer.literal(std::string_view{buffer, len});
             }
         }

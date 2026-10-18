@@ -14,7 +14,7 @@ implementation is required to produce. The demos are written to be read: open on
 | `06-rounding` | all five rounding modes on a grid of inputs, floor/ceil/trunc, why half-even |
 | `07-conversions` | `create`, `fromstring`, `tostring`, `tonumber`, accepted and rejected strings |
 | `08-mixing` | what mixes with what: integers yes, numbers and strings no; strict equality |
-| `09-limits` | the 64-bit mantissa: digits that fit, rounding beyond that, overflow, scale cap |
+| `09-limits` | the 90-bit mantissa: digits that fit, rounding beyond that, overflow, scale cap |
 | `10-money` | invoices, vat, discounts, splitting a bill, interest, currency conversion |
 | `11-containers` | tables, sorting, aggregation, functions, strings, library functions that refuse decimals |
 | `12-errors` | a catalog of every error message |
@@ -40,4 +40,4 @@ outputs side by side.
 
 - `1.50` and `1.5` are different representations of the same value; `==` ignores the scale, printing does not.
 - Anything that looks surprising next to .NET is listed in `dotnet/differences.expected` together with its cause:
-  the 64-bit mantissa (about 19 digits instead of 28), and how a double is converted.
+  the 90-bit mantissa (27 digits always, 28 up to 1.24e27, instead of 28 to 29), and how a double is converted.

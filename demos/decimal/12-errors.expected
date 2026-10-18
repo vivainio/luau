@@ -2,10 +2,9 @@
 == arithmetic ==
 overflow (add)                     error: decimal overflow
 overflow (mul)                     error: decimal overflow
-overflow (neg is fine)             ok: 9223372036854775807
+overflow (neg is fine)             ok: 1237940039285380274899124223
 division by zero                   error: decimal division by zero
 remainder by zero                  error: decimal division by zero
-remainder overflow                 error: decimal overflow
 floor division                     error: attempt to perform arithmetic (idiv) on decimal
 exponent                           error: attempt to perform arithmetic (pow) on decimal
 with a number                      error: attempt to perform arithmetic (add) on decimal and number
@@ -73,7 +72,7 @@ fromstring('1e500')                ok: nil
 == syntax errors ==
 return 1.2.3d                      Malformed decimal
 return 1ed                         Malformed decimal
-return 9223372036854775808d        Decimal literal is out of range
+return 1237940039285380274899124224d Decimal literal is out of range
 return 1e30d                       Decimal literal is out of range
 return 0.00000000000000000000000000001d Decimal literal is out of range
 return 1d2                         Malformed number

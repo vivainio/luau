@@ -184,7 +184,7 @@ void AstExprConstantInteger::visit(AstVisitor* visitor)
     visitor->visit(this);
 }
 
-AstExprConstantDecimal::AstExprConstantDecimal(const Location& location, int64_t mantissa, int exponent)
+AstExprConstantDecimal::AstExprConstantDecimal(const Location& location, DecimalMantissa mantissa, int exponent)
     : AstExpr(ClassIndex(), location)
     , mantissa(mantissa)
     , exponent(exponent)

@@ -851,7 +851,7 @@ TEST_CASE_FIXTURE(Fixture, "parse_decimal_literal_errors")
 {
     matchParseError("return 1.2.3d", "Malformed decimal");
     matchParseError("return 1ed", "Malformed decimal");
-    matchParseError("return 9223372036854775808d", "Decimal literal is out of range");
+    matchParseError("return 1237940039285380274899124224d", "Decimal literal is out of range");
     matchParseError("return 1e30d", "Decimal literal is out of range");
     matchParseError("return 1e-29d", "Decimal literal is out of range");
 }

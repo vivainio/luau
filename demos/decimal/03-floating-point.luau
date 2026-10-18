@@ -58,8 +58,7 @@ show("decimal: round(2.665d, 2, 'awayfromzero')", decimal.round(2.665d, 2, "away
 section("where decimals do NOT help")
 show("1d / 3d (finite digits)", 1d / 3d)
 show("1d / 3d * 3d", 1d / 3d * 3d)
--- 0.9999999999999999999 needs 19 digits and does not fit the 63-bit mantissa, so the product is rounded to 18
--- digits and happens to land on 1. .NET keeps 28 digits here and prints 0.9999999999999999999999999999.
+-- like in .NET, a third has no finite decimal expansion, so (1/3)*3 comes back as 0.999...9 and not as 1 (27 digits here, 28 in .NET).
 show("(1d / 3d) * 3d == 1d", (1d / 3d) * 3d == 1d)
 show("1d / 3d is not exact either", 1d / 3d == 0.3333333333333333333d)
 

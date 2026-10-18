@@ -2,6 +2,7 @@
 #pragma once
 
 #include "Luau/Common.h"
+#include "Luau/DecimalMantissa.h"
 #include "Luau/Location.h"
 #include "Luau/Variant.h"
 
@@ -372,17 +373,17 @@ public:
     int64_t value;
     ConstantNumberParseResult parseResult;
 };
-// value is mantissa * 10^exponent, normalized (no trailing zeros in the mantissa, zero has exponent 0)
+// value is mantissa * 10^exponent, where the exponent is the negated scale in [-28, 0] and the scale is preserved (1.50d has exponent -2)
 class AstExprConstantDecimal : public AstExpr
 {
 public:
     LUAU_RTTI(AstExprConstantDecimal)
 
-    AstExprConstantDecimal(const Location& location, int64_t mantissa, int exponent);
+    AstExprConstantDecimal(const Location& location, DecimalMantissa mantissa, int exponent);
 
     void visit(AstVisitor* visitor) override;
 
-    int64_t mantissa;
+    DecimalMantissa mantissa;
     int exponent;
 };
 

@@ -22,13 +22,15 @@ assert(0x1d == 29) -- hexadecimal numbers are not affected by the suffix
 assert(0.1d + 0.2d == 0.3d)
 assert(19.99d * 3d == 59.97d)
 assert(-1.5d == dec("-1.5"))
-assert(9223372036854775807d == dec("9223372036854775807"))
+assert(9223372036854775807d == dec("9223372036854775807")) -- no longer a limit
+assert(1237940039285380274899124223d == dec("1237940039285380274899124223")) -- 2^90 - 1, the largest mantissa
 assert(0.1d < 0.2d)
 assert(not (1.5d == 1.5))
 assert(select(2, loadstring("return 1.2.3d")):find("Malformed decimal"))
 assert(select(2, loadstring("return 1e30d")):find("out of range"))
 assert(select(2, loadstring("return 1e-29d")):find("out of range"))
-assert(select(2, loadstring("return 9223372036854775808d")):find("out of range"))
+assert(select(2, loadstring("return 1237940039285380274899124224d")):find("out of range")) -- 2^90
+assert(select(2, loadstring("return 99999999999999999999999999999d")):find("out of range"))
 assert(loadstring("return 0.0000000000000000000000000001d")) -- scale 28 is the maximum
 assert(select(2, loadstring("return 0.00000000000000000000000000001d")):find("out of range"))
 
@@ -86,7 +88,8 @@ assert(dec(" ") == nil)
 assert(dec("1 2") == nil)
 assert(pcall(d.create, {}) == false)
 -- too many digits are rounded half-even
-assert(dec("0.1234567890123456789012345678901") == dec("0.1234567890123456789"))
+assert(dec("0.1234567890123456789012345678901") == dec("0.1234567890123456789012345679"))
+assert(str(dec("0.1234567890123456789012345678901")) == "0.1234567890123456789012345679") -- 28 digits
 assert(dec("0.00000000000000000000000000004") == dec("0"))
 
 -- tostring
@@ -137,9 +140,9 @@ assert(str(1.00d / 2d) == "0.50")
 assert(str(7.50d / 2.5d) == "3.0")
 assert(str(10d / 4d) == "2.5")
 assert(str(1d / 8d) == "0.125")
-assert(str(1d / 3d) == "0.3333333333333333333")
-assert(str(2d / 3d) == "0.6666666666666666667")
-assert(str(-1d / 3d) == "-0.3333333333333333333")
+assert(str(1d / 3d) == "0.333333333333333333333333333")
+assert(str(2d / 3d) == "0.666666666666666666666666667")
+assert(str(-1d / 3d) == "-0.333333333333333333333333333")
 assert(str(1d / -4d) == "-0.25")
 assert(str(0d / 5d) == "0")
 assert(str(100d / 0.5d) == "200")
@@ -188,28 +191,28 @@ assert(not pcall(function() return #dec("1") end))
 
 -- precision is limited to a 64-bit mantissa, extra digits are rounded half-even
 assert(d.mul(dec("123456789.123456789"), dec("1")) == dec("123456789.123456789"))
-assert(not pcall(d.add, dec("9223372036854775807"), dec("1"))) -- integers that do not fit in the mantissa overflow
-assert(str(dec("92233720368547758.07") + dec("0.01")) == "92233720368547758.1") -- one digit too many, so the scale drops to 1
-assert(str(dec("92233720368547758.07") + dec("0.001")) == "92233720368547758.07")
+assert(not pcall(d.add, dec("1237940039285380274899124223"), dec("1"))) -- integers that do not fit in the mantissa overflow
+assert(str(dec("12379400392853802748991242.23") + dec("0.01")) == "12379400392853802748991242.2") -- one digit too many, so the scale drops to 1
+assert(str(dec("12379400392853802748991242.23") + dec("0.001")) == "12379400392853802748991242.23")
 
 -- the interpreter has fast paths for same-scale add, subtract, multiply and ordering; their edges must match the general path
-assert(9223372036854775806d + 1d == 9223372036854775807d)
-assert(not pcall(function() return -9223372036854775807d - 1d end)) -- would be INT64_MIN, which the mantissa never holds
-assert(not pcall(function() return 9223372036854775807d + 1d end))
-assert(-9223372036854775807d + 9223372036854775807d == 0d)
+assert(1237940039285380274899124222d + 1d == 1237940039285380274899124223d)
+assert(not pcall(function() return -1237940039285380274899124223d - 1d end))
+assert(not pcall(function() return 1237940039285380274899124223d + 1d end))
+assert(-1237940039285380274899124223d + 1237940039285380274899124223d == 0d)
 assert(str(0.5d * 0.5d) == "0.25")
-assert(str(9223372036854775807d * 1d) == "9223372036854775807")
-assert(not pcall(function() return 9223372036854775807d * 2d end))
+assert(str(1237940039285380274899124223d * 1d) == "1237940039285380274899124223")
+assert(not pcall(function() return 1237940039285380274899124223d * 2d end))
 assert(str(0.0000000000000001d * 0.0000000000000001d) == "0.0000000000000000000000000000") -- scale 32 goes through rounding
 assert(1.5d < 1.6d and 1.6d > 1.5d and 1.5d <= 1.5d and not (1.6d <= 1.5d) and not (1.5d < 1.5d))
 assert(-1.5d < 1.5d and -1.6d < -1.5d)
 assert(0.50d >= 0.5d and 0.50d <= 0.5d and not (0.50d < 0.5d)) -- different scales still compare numerically
 
 -- overflow
-assert(not pcall(function() return 9223372036854775807d * 10d end))
-assert(select(2, pcall(function() return 9223372036854775807d * 10d end)):find("decimal overflow"))
-assert(not pcall(function() return 9223372036854775807d + 9223372036854775807d end))
-assert(not pcall(d.mul, dec("9223372036854775807"), dec("2")))
+assert(not pcall(function() return 1237940039285380274899124223d * 10d end))
+assert(select(2, pcall(function() return 1237940039285380274899124223d * 10d end)):find("decimal overflow"))
+assert(not pcall(function() return 1237940039285380274899124223d + 1237940039285380274899124223d end))
+assert(not pcall(d.mul, dec("1237940039285380274899124223"), dec("2")))
 
 -- round: half-even by default, places in [0, 28]
 assert(str(d.round(2.675d, 2)) == "2.68")

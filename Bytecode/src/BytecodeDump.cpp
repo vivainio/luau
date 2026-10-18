@@ -361,7 +361,11 @@ void toString(ToStringContext& ctx, BcFunction<BcVmConst>& function, const BcVmC
         append(ctx.result, "%lld", (long long)data.valueInteger);
         break;
     case BcVmConstKind::Decimal:
-        append(ctx.result, "%lldE%dd", (long long)data.valueDecimal.mantissa, (int)data.valueDecimal.exponent);
+    {
+        char digits[48];
+        decimalMantissaToString(digits, data.valueDecimal.mantissa);
+        append(ctx.result, "%sE%dd", digits, (int)data.valueDecimal.exponent);
+    }
         break;
     case BcVmConstKind::ClassShape:
         const BytecodeBuilder::ClassShape& cs = function.classShapes[data.valueClassShape];

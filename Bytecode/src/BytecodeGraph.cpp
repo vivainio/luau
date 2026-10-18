@@ -171,11 +171,10 @@ std::optional<CompTimeBcFunction> fromFunctionBytecode(std::string bytecode, std
         {
             fn.constants[i].kind = BcVmConstKind::Decimal;
             bool isNegative = read<uint8_t>(data, offset);
-            uint64_t magnitude = readVarInt64(data, offset);
-            fn.constants[i].valueDecimal.mantissa = isNegative ? (int64_t)(~magnitude + 1) : (int64_t)magnitude;
-            bool isNegativeExp = read<uint8_t>(data, offset);
-            int32_t exp = int32_t(readVarInt(data, offset));
-            fn.constants[i].valueDecimal.exponent = isNegativeExp ? -exp : exp;
+            uint64_t hi = readVarInt64(data, offset);
+            uint64_t lo = readVarInt64(data, offset);
+            fn.constants[i].valueDecimal.mantissa = decimalMantissaJoin(isNegative, hi, lo);
+            fn.constants[i].valueDecimal.exponent = -int32_t(readVarInt(data, offset));
             break;
         }
 

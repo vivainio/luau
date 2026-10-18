@@ -421,7 +421,7 @@ int luaV_strcmp(const TString* ls, const TString* rs)
 }
 
 // decimals can be mixed with integers (but not numbers) in arithmetic and ordering comparisons
-static bool decimalOperand(const TValue* o, int64_t* m, int* e)
+static bool decimalOperand(const TValue* o, DecimalMantissa* m, int* e)
 {
     if (ttisdecimal(o))
     {
@@ -444,7 +444,7 @@ int luaV_lessthan(lua_State* L, const TValue* l, const TValue* r)
 {
     if (LUAU_UNLIKELY(ttisdecimal(l) || ttisdecimal(r)))
     {
-        int64_t ml, mr;
+        DecimalMantissa ml, mr;
         int el, er;
         if (decimalOperand(l, &ml, &el) && decimalOperand(r, &mr, &er))
             return el == er ? ml < mr : luai_deccmp(ml, el, mr, er) < 0;
@@ -466,7 +466,7 @@ int luaV_lessequal(lua_State* L, const TValue* l, const TValue* r)
 {
     if (LUAU_UNLIKELY(ttisdecimal(l) || ttisdecimal(r)))
     {
-        int64_t ml, mr;
+        DecimalMantissa ml, mr;
         int el, er;
         if (decimalOperand(l, &ml, &el) && decimalOperand(r, &mr, &er))
             return el == er ? ml <= mr : luai_deccmp(ml, el, mr, er) <= 0;
@@ -612,7 +612,7 @@ void luaV_doarithimpl(lua_State* L, StkId ra, const TValue* rb, const TValue* rc
     // there is no implicit conversion from or to numbers
     if (LUAU_UNLIKELY(ttisdecimal(rb) || ttisdecimal(rc)))
     {
-        int64_t mb, mc, m = 0;
+        DecimalMantissa mb, mc, m = 0;
         int eb, ec, e = 0;
 
         if (decimalOperand(rb, &mb, &eb) && decimalOperand(rc, &mc, &ec))

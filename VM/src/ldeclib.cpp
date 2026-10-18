@@ -4,109 +4,357 @@
 #include "lcommon.h"
 #include "lnumutils.h"
 #include "lobject.h"
+#include "lwide.h"
 
 #include <climits>
 #include <cmath>
 #include <stdlib.h>
 #include <string.h>
 
-// Decimal values are stored as `mantissa * 10^exponent` with an int64 mantissa and an int32 exponent, where the exponent is the negated
-// scale of the value: it is always in [-28, 0], so the scale (number of digits after the decimal point) is in [0, 28], as in .NET.
+// Decimal values are stored as `mantissa * 10^exponent` with a signed mantissa of at most 90 bits (27 digits always fit, 28 up to 1.24e27)
+// and an exponent that is the negated scale: it is always in [-28, 0], so the scale (number of digits after the decimal point) is in [0, 28],
+// as in .NET.
 //
 // The scale is preserved: 2.50 has mantissa 250 and exponent -2, 2.5 has mantissa 25 and exponent -1. Equality and ordering are numeric.
-// Arithmetic is computed exactly in 128 bits and then rounded (half-even) to the 63 bits that fit in the mantissa, which lowers the scale.
-// Values that cannot be represented even at scale 0 raise an overflow error.
+// Arithmetic is computed exactly in 256 bits (see lwide.h) and then rounded half-even to the 90 bits that fit in the mantissa, which lowers
+// the scale. Values that cannot be represented even at scale 0 raise an overflow error.
 
-#if !defined(__SIZEOF_INT128__)
-#error "decimal library currently requires __int128"
-#endif
-
-typedef __int128 wide;
-
-static const int kMaxScale = 28;
-
-static wide pow10w(int n)
+namespace
 {
-    LUAU_ASSERT(n >= 0 && n <= 38);
-    wide r = 1;
-    while (n-- > 0)
-        r *= 10;
-    return r;
+
+// sign and magnitude, which is what the rounding rules and the 256-bit helper work with
+struct SignMagnitude
+{
+    Wide mag;
+    bool neg;
+};
+
 }
 
-static int ndigits(wide a)
+static Wide maxMantissaWide()
 {
-    int n = 0;
-    while (a > 0)
-    {
-        a /= 10;
-        n++;
-    }
-    return n;
+    // 2^90 - 1
+    Wide w = wideZero();
+    w.w[0] = 0xFFFFFFFFu;
+    w.w[1] = 0xFFFFFFFFu;
+    w.w[2] = 0x03FFFFFFu;
+    return w;
 }
 
-static wide absw(wide a)
+static SignMagnitude toSignMagnitude(DecimalMantissa m)
 {
-    return a < 0 ? -a : a;
+    bool neg;
+    uint64_t hi, lo;
+    decimalMantissaSplit(m, &neg, &hi, &lo);
+    return {wideFromU128(lo, hi), neg};
 }
 
-// divides a (non-negative) by 10^drop, rounding half-even
-static wide dropdigits(wide a, int drop)
+// the magnitude must not exceed 2^90 - 1
+static DecimalMantissa fromMagnitude(const Wide& mag, bool neg)
+{
+    uint64_t lo = uint64_t(mag.w[0]) | (uint64_t(mag.w[1]) << 32);
+    uint64_t hi = uint64_t(mag.w[2]);
+    return decimalMantissaJoin(neg, hi, lo);
+}
+
+// divides a by 10^drop, rounding half-even
+static Wide dropDigits(const Wide& a, int drop)
 {
     if (drop <= 0)
         return a;
-    if (drop > 38)
-        return 0;
+    if (drop > kWideMaxPow10)
+        return wideZero(); // a < 2^256 < 10^78, so a / 10^drop < 0.5
 
-    wide div = pow10w(drop);
-    wide q = a / div;
-    wide twice = (a % div) * 2;
-    if (twice > div || (twice == div && (q & 1)))
-        q++;
+    const Wide& div = widePow10(drop);
+    Wide q, r;
+    wideDivMod(a, div, &q, &r);
+
+    int c = wideCmp(wideAdd(r, r), div);
+    if (c > 0 || (c == 0 && (q.w[0] & 1)))
+        q = wideAdd(q, wideFromU64(1));
     return q;
 }
 
-// reduces m * 10^e to a valid (int64 mantissa, exponent in [-28, 0]) pair, returns false if the value does not fit
-static bool reducewide(wide m, int e, int64_t& om, int& oe)
+// Reduces mag * 10^e to a magnitude that fits the mantissa and an exponent in [-28, 0], rounding half-even once, to the finest scale that
+// makes it fit. Returns false if the value does not fit even at scale 0: an integer part that does not fit is an overflow, it is never
+// rounded.
+static bool reduce(Wide& mag, int& e)
 {
-    bool neg = m < 0;
-    wide a = absw(m);
+    static const Wide maxm = maxMantissaWide();
 
-    while (a > wide(INT64_MAX))
+    if (wideIsZero(mag))
     {
-        int drop = 0;
-        for (wide t = a; t > wide(INT64_MAX); t /= 10)
-            drop++;
-
-        a = dropdigits(a, drop);
-        e += drop;
+        e = e > 0 ? 0 : (e < -kDecimalMaxScale ? -kDecimalMaxScale : e);
+        return true;
     }
 
-    if (e < -kMaxScale)
+    // a positive exponent means an integer written in scientific notation: it fits only if the full number does
+    if (e > 0)
     {
-        a = dropdigits(a, -kMaxScale - e);
-        e = -kMaxScale;
-    }
-
-    // a positive exponent means the value is an integer that was scaled down; bring it back to scale 0 if it fits
-    while (e > 0)
-    {
-        if (a > wide(INT64_MAX / 10))
+        if (e > kWideMaxPow10 || wideDigits(mag) + e > 28)
             return false;
 
-        a *= 10;
-        e--;
+        mag = wideMul(mag, widePow10(e));
+        e = 0;
+        return wideCmp(mag, maxm) <= 0;
     }
 
-    om = int64_t(neg ? -a : a);
-    oe = e;
+    // the finest allowed scale, and the scale at which the number has few enough digits (the largest mantissa has 28)
+    int target = e < -kDecimalMaxScale ? -kDecimalMaxScale : e;
+    int fit = e + (wideDigits(mag) - 28);
+    if (fit > target)
+        target = fit;
+
+    for (;;)
+    {
+        if (target > 0)
+            return false;
+
+        Wide q = dropDigits(mag, target - e);
+        if (wideCmp(q, maxm) <= 0)
+        {
+            mag = q;
+            e = target;
+            return true;
+        }
+
+        target++; // rounding up carried into a 29th digit, or the digit count estimate was one short
+    }
+}
+
+// removes trailing zeros while the scale is above the preferred one
+static void stripZeros(Wide& mag, int& e, int preferredScale)
+{
+    int most = -e - preferredScale;
+    if (most <= 0 || wideIsZero(mag))
+        return;
+
+    // the largest t in [0, most] for which mag is divisible by 10^t; divisibility is monotonic in t
+    int lo = 0, hi = most;
+    while (lo < hi)
+    {
+        int mid = (lo + hi + 1) / 2;
+        Wide q, r;
+        wideDivMod(mag, widePow10(mid), &q, &r);
+        if (wideIsZero(r))
+            lo = mid;
+        else
+            hi = mid - 1;
+    }
+
+    if (lo > 0)
+    {
+        Wide q, r;
+        wideDivMod(mag, widePow10(lo), &q, &r);
+        mag = q;
+        e += lo;
+    }
+}
+
+static bool finish(Wide mag, bool neg, int e, DecimalMantissa* om, int* oe)
+{
+    if (!reduce(mag, e))
+        return false;
+
+    *om = fromMagnitude(mag, neg && !wideIsZero(mag));
+    *oe = e;
     return true;
 }
 
-static void checkdecimalarg(lua_State* L, int narg, int64_t& m, int& e)
+// a + b of two sign-magnitude values at the same exponent
+static SignMagnitude addMagnitudes(const SignMagnitude& a, const SignMagnitude& b)
 {
-    if (lua_todecimal(L, narg, &m, &e))
+    if (a.neg == b.neg)
+        return {wideAdd(a.mag, b.mag), a.neg};
+
+    int c = wideCmp(a.mag, b.mag);
+    if (c == 0)
+        return {wideZero(), false};
+    if (c > 0)
+        return {wideSub(a.mag, b.mag), a.neg};
+    return {wideSub(b.mag, a.mag), b.neg};
+}
+
+static bool addSub(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, bool subtract, DecimalMantissa* om, int* oe)
+{
+    SignMagnitude a = toSignMagnitude(ma);
+    SignMagnitude b = toSignMagnitude(mb);
+    if (subtract)
+        b.neg = !b.neg;
+
+    // bring both to the larger scale; the exponents are in [-28, 0], so the factor is at most 10^28
+    int e = ea < eb ? ea : eb;
+    a.mag = wideMul(a.mag, widePow10(ea - e));
+    b.mag = wideMul(b.mag, widePow10(eb - e));
+
+    SignMagnitude r = addMagnitudes(a, b);
+    return finish(r.mag, r.neg, e, om, oe);
+}
+
+bool luai_decadd(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe)
+{
+    return addSub(ma, ea, mb, eb, false, om, oe);
+}
+
+bool luai_decsub(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe)
+{
+    return addSub(ma, ea, mb, eb, true, om, oe);
+}
+
+bool luai_decmul(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe)
+{
+    SignMagnitude a = toSignMagnitude(ma);
+    SignMagnitude b = toSignMagnitude(mb);
+    return finish(wideMul(a.mag, b.mag), a.neg != b.neg, ea + eb, om, oe);
+}
+
+bool luai_decneg(DecimalMantissa m, int e, DecimalMantissa* om, int* oe)
+{
+    *om = -m;
+    *oe = e;
+    return true;
+}
+
+// the result has as many digits as fit, then trailing zeros are removed down to the preferred scale max(scale(a) - scale(b), 0)
+int luai_decdiv(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe)
+{
+    SignMagnitude a = toSignMagnitude(ma);
+    SignMagnitude b = toSignMagnitude(mb);
+
+    if (wideIsZero(b.mag))
+        return LUAI_DEC_DIVZERO;
+
+    int s0 = eb - ea; // scale(a) - scale(b), since the exponent is the negated scale
+    int preferred = s0 > 0 ? s0 : 0;
+
+    if (wideIsZero(a.mag))
+    {
+        *om = 0;
+        *oe = -preferred;
+        return LUAI_DEC_OK;
+    }
+
+    static const Wide maxm = maxMantissaWide();
+
+    int na = wideDigits(a.mag);
+    int nb = wideDigits(b.mag);
+
+    // the quotient a / b * 10^k has scale s0 + k, which must be in [0, 28], and the scaled numerator must fit in 256 bits
+    int kmin = s0 < 0 ? -s0 : 0;
+    int kmax = kDecimalMaxScale - s0;
+    if (kmax > kWideMaxPow10 - na)
+        kmax = kWideMaxPow10 - na;
+
+    if (kmin > kmax)
+        return LUAI_DEC_OVERFLOW;
+
+    // the rounded quotient grows with k, and we want the largest k for which it still fits in the mantissa; the digit counts give a close
+    // estimate, so only a couple of 256-bit divisions are needed
+    auto quotient = [&](int k, Wide* out)
+    {
+        Wide q, r;
+        wideDivMod(wideMul(a.mag, widePow10(k)), b.mag, &q, &r);
+
+        // round half-even using the remainder
+        int c = wideCmp(wideAdd(r, r), b.mag);
+        if (c > 0 || (c == 0 && (q.w[0] & 1)))
+            q = wideAdd(q, wideFromU64(1));
+
+        *out = q;
+        return wideCmp(q, maxm) <= 0;
+    };
+
+    int k = 28 - (na - nb);
+    k = k < kmin ? kmin : (k > kmax ? kmax : k);
+
+    Wide q;
+    while (!quotient(k, &q))
+    {
+        if (k == kmin)
+            return LUAI_DEC_OVERFLOW;
+        k--;
+    }
+
+    while (k < kmax)
+    {
+        Wide next;
+        if (!quotient(k + 1, &next))
+            break;
+
+        k++;
+        q = next;
+    }
+
+    // a quotient that rounds to zero is plain zero, as in .NET (a zero dividend keeps the preferred scale, handled above)
+    if (wideIsZero(q))
+    {
+        *om = 0;
+        *oe = 0;
+        return LUAI_DEC_OK;
+    }
+
+    int e = -(s0 + k);
+    stripZeros(q, e, preferred);
+
+    *om = fromMagnitude(q, (a.neg != b.neg) && !wideIsZero(q));
+    *oe = e;
+    return LUAI_DEC_OK;
+}
+
+// remainder with the sign of the dividend (truncated division), the scale is the larger of the two operand scales
+int luai_decrem(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe)
+{
+    SignMagnitude a = toSignMagnitude(ma);
+    SignMagnitude b = toSignMagnitude(mb);
+
+    if (wideIsZero(b.mag))
+        return LUAI_DEC_DIVZERO;
+
+    int e = ea < eb ? ea : eb;
+    Wide x = wideMul(a.mag, widePow10(ea - e));
+    Wide y = wideMul(b.mag, widePow10(eb - e));
+
+    Wide q, r;
+    wideDivMod(x, y, &q, &r);
+
+    return finish(r, a.neg, e, om, oe) ? LUAI_DEC_OK : LUAI_DEC_OVERFLOW;
+}
+
+int luai_deccmp(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb)
+{
+    int sa = (ma > 0) - (ma < 0);
+    int sb = (mb > 0) - (mb < 0);
+    if (sa != sb)
+        return sa < sb ? -1 : 1;
+    if (sa == 0)
+        return 0;
+
+    SignMagnitude a = toSignMagnitude(ma);
+    SignMagnitude b = toSignMagnitude(mb);
+
+    int e = ea < eb ? ea : eb;
+    int r = wideCmp(wideMul(a.mag, widePow10(ea - e)), wideMul(b.mag, widePow10(eb - e)));
+
+    return sa < 0 ? -r : r;
+}
+
+static void pushdec(lua_State* L, DecimalMantissa m, int e)
+{
+    bool neg;
+    uint64_t hi, lo;
+    decimalMantissaSplit(m, &neg, &hi, &lo);
+    lua_pushdecimal(L, neg, hi, lo, e);
+}
+
+static void checkdecimalarg(lua_State* L, int narg, DecimalMantissa& m, int& e)
+{
+    int neg;
+    uint64_t hi, lo;
+    if (lua_todecimal(L, narg, &neg, &hi, &lo, &e))
+    {
+        m = decimalMantissaJoin(neg != 0, hi, lo);
         return;
+    }
 
     if (lua_isinteger64(L, narg))
     {
@@ -118,200 +366,9 @@ static void checkdecimalarg(lua_State* L, int narg, int64_t& m, int& e)
     luaL_typeerror(L, narg, "decimal");
 }
 
-// adds two values given as mantissa and exponent; the result has the smaller of the two exponents (larger scale) if it fits
-static wide addaligned(wide a, int ea, wide b, int eb, int& oe)
+static int decimal_binop(lua_State* L, bool (*op)(DecimalMantissa, int, DecimalMantissa, int, DecimalMantissa*, int*))
 {
-    if (ea < eb)
-    {
-        wide t = a;
-        a = b;
-        b = t;
-        int te = ea;
-        ea = eb;
-        eb = te;
-    }
-
-    // now ea >= eb; scale a down to eb
-    int diff = ea - eb;
-    if (ndigits(absw(a)) + diff <= 38)
-    {
-        oe = eb;
-        return a * pow10w(diff) + b;
-    }
-
-    // a * 10^diff would not fit in 128 bits, but the result has more than 19 digits anyway so it is rounded below; drop the low digits of b
-    bool neg = b < 0;
-    wide mag = dropdigits(neg ? -b : b, diff - 19);
-    b = neg ? -mag : mag;
-    oe = ea - 19;
-    return a * pow10w(19) + b;
-}
-
-bool luai_decadd(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
-{
-    int e;
-    wide r = addaligned(ma, ea, mb, eb, e);
-    return reducewide(r, e, *om, *oe);
-}
-
-bool luai_decsub(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
-{
-    int e;
-    wide r = addaligned(ma, ea, -wide(mb), eb, e);
-    return reducewide(r, e, *om, *oe);
-}
-
-bool luai_decmul(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
-{
-    return reducewide(wide(ma) * wide(mb), ea + eb, *om, *oe);
-}
-
-bool luai_decneg(int64_t m, int e, int64_t* om, int* oe)
-{
-    return reducewide(-wide(m), e, *om, *oe);
-}
-
-// the result has as many digits as fit, then trailing zeros are removed down to the preferred scale max(scale(a) - scale(b), 0)
-int luai_decdiv(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
-{
-    if (mb == 0)
-        return LUAI_DEC_DIVZERO;
-
-    int s0 = eb - ea; // scale(a) - scale(b), since the exponent is the negated scale
-    int preferred = s0 > 0 ? s0 : 0;
-
-    if (ma == 0)
-    {
-        *om = 0;
-        *oe = -preferred;
-        return LUAI_DEC_OK;
-    }
-
-    wide a = absw(ma);
-    wide b = absw(mb);
-
-    // the quotient a / b * 10^k has scale s0 + k, which must be in [0, 28], and a * 10^k must fit in 128 bits
-    int kmin = s0 < 0 ? -s0 : 0;
-    int kmax = kMaxScale - s0;
-    if (kmax > 38 - ndigits(a))
-        kmax = 38 - ndigits(a);
-
-    if (kmin > kmax)
-        return LUAI_DEC_OVERFLOW;
-
-    // the quotient grows with k, and we want the largest k for which it still fits in the mantissa; the digit counts give a close
-    // estimate, so only a couple of 128-bit divisions are needed
-    int k = 19 - (ndigits(a) - ndigits(b));
-    k = k < kmin ? kmin : (k > kmax ? kmax : k);
-
-    wide q = (a * pow10w(k)) / b;
-    while (q > wide(INT64_MAX) && k > kmin)
-    {
-        k--;
-        q = (a * pow10w(k)) / b;
-    }
-
-    while (k < kmax)
-    {
-        wide next = (a * pow10w(k + 1)) / b;
-        if (next > wide(INT64_MAX))
-            break;
-
-        k++;
-        q = next;
-    }
-
-    // round half-even using the remainder of the final division
-    wide r = (a * pow10w(k)) % b;
-    wide twice = r * 2;
-    if (twice > b || (twice == b && (q & 1)))
-        q++;
-
-    bool neg = (ma < 0) != (mb < 0);
-    int scale = s0 + k;
-
-    int64_t m;
-    int e;
-    if (!reducewide(neg ? -q : q, -scale, m, e))
-        return LUAI_DEC_OVERFLOW;
-
-    while (m % 10 == 0 && -e > preferred)
-    {
-        m /= 10;
-        e++;
-    }
-
-    *om = m;
-    *oe = e;
-    return LUAI_DEC_OK;
-}
-
-// remainder with the sign of the dividend (truncated division), the scale is the larger of the two operand scales
-int luai_decrem(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
-{
-    if (mb == 0)
-        return LUAI_DEC_DIVZERO;
-
-    int e = ea < eb ? ea : eb;
-    int da = ea - e;
-    int db = eb - e;
-
-    if (ndigits(absw(ma)) + da > 38 || ndigits(absw(mb)) + db > 38)
-        return LUAI_DEC_OVERFLOW;
-
-    wide a = wide(ma) * pow10w(da);
-    wide b = wide(mb) * pow10w(db);
-
-    return reducewide(a % b, e, *om, *oe) ? LUAI_DEC_OK : LUAI_DEC_OVERFLOW;
-}
-
-int luai_deccmp(int64_t ma, int ea, int64_t mb, int eb)
-{
-    int sa = (ma > 0) - (ma < 0);
-    int sb = (mb > 0) - (mb < 0);
-    if (sa != sb)
-        return sa < sb ? -1 : 1;
-    if (sa == 0)
-        return 0;
-
-    wide a = absw(ma);
-    wide b = absw(mb);
-
-    int oa = ndigits(a) + ea;
-    int ob = ndigits(b) + eb;
-
-    int r;
-    if (oa != ob)
-    {
-        r = oa < ob ? -1 : 1;
-    }
-    else
-    {
-        // same order of magnitude, so the exponents differ by less than 19 and scaling is exact
-        if (ea > eb)
-            a *= pow10w(ea - eb);
-        else
-            b *= pow10w(eb - ea);
-
-        r = a < b ? -1 : (a > b ? 1 : 0);
-    }
-
-    return sa < 0 ? -r : r;
-}
-
-static void pushreduced(lua_State* L, wide m, int e)
-{
-    int64_t om;
-    int oe;
-    if (!reducewide(m, e, om, oe))
-        luaL_error(L, "decimal overflow");
-
-    lua_pushdecimal(L, om, oe);
-}
-
-static int decimal_binop(lua_State* L, bool (*op)(int64_t, int, int64_t, int, int64_t*, int*))
-{
-    int64_t ma, mb, om;
+    DecimalMantissa ma, mb, om;
     int ea, eb, oe;
     checkdecimalarg(L, 1, ma, ea);
     checkdecimalarg(L, 2, mb, eb);
@@ -319,13 +376,13 @@ static int decimal_binop(lua_State* L, bool (*op)(int64_t, int, int64_t, int, in
     if (!op(ma, ea, mb, eb, &om, &oe))
         luaL_error(L, "decimal overflow");
 
-    lua_pushdecimal(L, om, oe);
+    pushdec(L, om, oe);
     return 1;
 }
 
-static int decimal_divop(lua_State* L, int (*op)(int64_t, int, int64_t, int, int64_t*, int*))
+static int decimal_divop(lua_State* L, int (*op)(DecimalMantissa, int, DecimalMantissa, int, DecimalMantissa*, int*))
 {
-    int64_t ma, mb, om;
+    DecimalMantissa ma, mb, om;
     int ea, eb, oe;
     checkdecimalarg(L, 1, ma, ea);
     checkdecimalarg(L, 2, mb, eb);
@@ -333,7 +390,7 @@ static int decimal_divop(lua_State* L, int (*op)(int64_t, int, int64_t, int, int
     switch (op(ma, ea, mb, eb, &om, &oe))
     {
     case LUAI_DEC_OK:
-        lua_pushdecimal(L, om, oe);
+        pushdec(L, om, oe);
         return 1;
     case LUAI_DEC_DIVZERO:
         luaL_error(L, "decimal division by zero");
@@ -342,17 +399,17 @@ static int decimal_divop(lua_State* L, int (*op)(int64_t, int, int64_t, int, int
     }
 }
 
-static bool decimal_addfast(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+static bool decimal_addfast(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe)
 {
     return luai_decaddfast(ma, ea, mb, eb, om, oe) || luai_decadd(ma, ea, mb, eb, om, oe);
 }
 
-static bool decimal_subfast(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+static bool decimal_subfast(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe)
 {
     return luai_decsubfast(ma, ea, mb, eb, om, oe) || luai_decsub(ma, ea, mb, eb, om, oe);
 }
 
-static bool decimal_mulfast(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+static bool decimal_mulfast(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe)
 {
     return luai_decmulfast(ma, ea, mb, eb, om, oe) || luai_decmul(ma, ea, mb, eb, om, oe);
 }
@@ -384,27 +441,27 @@ static int decimal_rem(lua_State* L)
 
 static int decimal_neg(lua_State* L)
 {
-    int64_t m;
+    DecimalMantissa m;
     int e;
     checkdecimalarg(L, 1, m, e);
 
-    pushreduced(L, -wide(m), e);
+    pushdec(L, -m, e);
     return 1;
 }
 
 static int decimal_abs(lua_State* L)
 {
-    int64_t m;
+    DecimalMantissa m;
     int e;
     checkdecimalarg(L, 1, m, e);
 
-    pushreduced(L, absw(m), e);
+    pushdec(L, m < 0 ? -m : m, e);
     return 1;
 }
 
 static int decimal_sign(lua_State* L)
 {
-    int64_t m;
+    DecimalMantissa m;
     int e;
     checkdecimalarg(L, 1, m, e);
 
@@ -414,7 +471,7 @@ static int decimal_sign(lua_State* L)
 
 static int decimal_scale(lua_State* L)
 {
-    int64_t m;
+    DecimalMantissa m;
     int e;
     checkdecimalarg(L, 1, m, e);
 
@@ -432,58 +489,63 @@ enum RoundMode
 };
 
 // rounds to the given number of digits after the decimal point; values that already have at most that many are unchanged
-static void roundto(lua_State* L, int64_t m, int e, int places, RoundMode mode)
+static void roundto(lua_State* L, DecimalMantissa m, int e, int places, RoundMode mode)
 {
     int target = -places;
     if (e >= target)
     {
-        lua_pushdecimal(L, m, e);
+        pushdec(L, m, e);
         return;
     }
 
-    bool neg = m < 0;
-    wide a = absw(m);
+    SignMagnitude a = toSignMagnitude(m);
 
-    // |m| < 10^19 and the scale is at most 28, so this is at most 10^28
-    wide div = pow10w(target - e);
-    wide q = a / div;
-    wide rem = a % div;
-    wide twice = rem * 2;
+    // the scale is at most 28, so this is at most 10^28
+    const Wide& div = widePow10(target - e);
+    Wide q, rem;
+    wideDivMod(a.mag, div, &q, &rem);
+
+    int half = wideCmp(wideAdd(rem, rem), div);
 
     bool up = false;
     switch (mode)
     {
     case HalfEven:
-        up = twice > div || (twice == div && (q & 1));
+        up = half > 0 || (half == 0 && (q.w[0] & 1));
         break;
     case AwayFromZero:
-        up = twice >= div;
+        up = half >= 0;
         break;
     case ToZero:
         break;
     case ToNegativeInfinity:
-        up = neg && rem != 0;
+        up = a.neg && !wideIsZero(rem);
         break;
     case ToPositiveInfinity:
-        up = !neg && rem != 0;
+        up = !a.neg && !wideIsZero(rem);
         break;
     }
 
     if (up)
-        q++;
+        q = wideAdd(q, wideFromU64(1));
 
-    pushreduced(L, neg ? -q : q, target);
+    DecimalMantissa om;
+    int oe;
+    if (!finish(q, a.neg, target, &om, &oe))
+        luaL_error(L, "decimal overflow");
+
+    pushdec(L, om, oe);
 }
 
 static int decimal_round(lua_State* L)
 {
-    int64_t m;
+    DecimalMantissa m;
     int e;
     checkdecimalarg(L, 1, m, e);
     int places = luaL_checkinteger(L, 2);
     const char* mode = luaL_optstring(L, 3, "halfeven");
 
-    luaL_argcheck(L, places >= 0 && places <= kMaxScale, 2, "number of places out of range [0, 28]");
+    luaL_argcheck(L, places >= 0 && places <= kDecimalMaxScale, 2, "number of places out of range [0, 28]");
 
     RoundMode rounding;
     if (strcmp(mode, "halfeven") == 0)
@@ -505,7 +567,7 @@ static int decimal_round(lua_State* L)
 
 static int decimal_floor(lua_State* L)
 {
-    int64_t m;
+    DecimalMantissa m;
     int e;
     checkdecimalarg(L, 1, m, e);
     roundto(L, m, e, 0, ToNegativeInfinity);
@@ -514,7 +576,7 @@ static int decimal_floor(lua_State* L)
 
 static int decimal_ceil(lua_State* L)
 {
-    int64_t m;
+    DecimalMantissa m;
     int e;
     checkdecimalarg(L, 1, m, e);
     roundto(L, m, e, 0, ToPositiveInfinity);
@@ -523,7 +585,7 @@ static int decimal_ceil(lua_State* L)
 
 static int decimal_trunc(lua_State* L)
 {
-    int64_t m;
+    DecimalMantissa m;
     int e;
     checkdecimalarg(L, 1, m, e);
     roundto(L, m, e, 0, ToZero);
@@ -534,13 +596,13 @@ static int decimal_minmax(lua_State* L, bool wantMax)
 {
     int n = lua_gettop(L);
 
-    int64_t bm;
+    DecimalMantissa bm;
     int be;
     checkdecimalarg(L, 1, bm, be);
 
     for (int i = 2; i <= n; i++)
     {
-        int64_t m;
+        DecimalMantissa m;
         int e;
         checkdecimalarg(L, i, m, e);
 
@@ -553,7 +615,7 @@ static int decimal_minmax(lua_State* L, bool wantMax)
         }
     }
 
-    lua_pushdecimal(L, bm, be);
+    pushdec(L, bm, be);
     return 1;
 }
 
@@ -569,7 +631,7 @@ static int decimal_max(lua_State* L)
 
 static int decimal_lt(lua_State* L)
 {
-    int64_t ma, mb;
+    DecimalMantissa ma, mb;
     int ea, eb;
     checkdecimalarg(L, 1, ma, ea);
     checkdecimalarg(L, 2, mb, eb);
@@ -580,7 +642,7 @@ static int decimal_lt(lua_State* L)
 
 static int decimal_le(lua_State* L)
 {
-    int64_t ma, mb;
+    DecimalMantissa ma, mb;
     int ea, eb;
     checkdecimalarg(L, 1, ma, ea);
     checkdecimalarg(L, 2, mb, eb);
@@ -591,7 +653,7 @@ static int decimal_le(lua_State* L)
 
 static int decimal_tostring(lua_State* L)
 {
-    int64_t m;
+    DecimalMantissa m;
     int e;
     checkdecimalarg(L, 1, m, e);
 
@@ -603,7 +665,7 @@ static int decimal_tostring(lua_State* L)
 
 static int decimal_tonumber(lua_State* L)
 {
-    int64_t m;
+    DecimalMantissa m;
     int e;
     checkdecimalarg(L, 1, m, e);
 
@@ -613,8 +675,8 @@ static int decimal_tonumber(lua_State* L)
     return 1;
 }
 
-// accepts [+-]digits[.digits][(e|E)[+-]digits]; trailing zeros after the decimal point are kept
-static bool parsedec(const char* s, size_t n, wide& m, int& e)
+// accepts [+-]digits[.digits][(e|E)[+-]digits]; trailing zeros after the decimal point are kept; surrounding whitespace is allowed
+static bool parsedec(const char* s, size_t n, Wide& mag, bool& neg, int& e)
 {
     // surrounding whitespace is allowed, as in .NET's decimal.Parse
     while (n > 0 && (s[n - 1] == ' ' || (s[n - 1] >= '\t' && s[n - 1] <= '\r')))
@@ -624,13 +686,14 @@ static bool parsedec(const char* s, size_t n, wide& m, int& e)
     while (i < n && (s[i] == ' ' || (s[i] >= '\t' && s[i] <= '\r')))
         i++;
 
-    bool neg = false;
+    neg = false;
     if (i < n && (s[i] == '-' || s[i] == '+'))
         neg = s[i++] == '-';
 
-    const wide cap = pow10w(36); // digits beyond this are far below the precision we keep
+    // digits beyond this are far below the precision we keep
+    const Wide& cap = widePow10(70);
 
-    m = 0;
+    mag = wideZero();
     e = 0;
     bool any = false, dot = false;
 
@@ -640,9 +703,9 @@ static bool parsedec(const char* s, size_t n, wide& m, int& e)
         if (c >= '0' && c <= '9')
         {
             any = true;
-            if (m < cap)
+            if (wideCmp(mag, cap) < 0)
             {
-                m = m * 10 + (c - '0');
+                mag = wideAdd(wideMulSmall(mag, 10), wideFromU64(uint64_t(c - '0')));
                 if (dot)
                     e--;
             }
@@ -684,29 +747,24 @@ static bool parsedec(const char* s, size_t n, wide& m, int& e)
         e += int(eneg ? -ex : ex);
     }
 
-    if (i != n)
-        return false;
-
-    if (neg)
-        m = -m;
-
-    return true;
+    return i == n;
 }
 
 static int pushparsed(lua_State* L, const char* s, size_t n)
 {
-    wide m;
+    Wide mag;
+    bool neg;
     int e;
-    int64_t om;
+    DecimalMantissa om;
     int oe;
 
-    if (!parsedec(s, n, m, e) || !reducewide(m, e, om, oe))
+    if (!parsedec(s, n, mag, neg, e) || !finish(mag, neg, e, &om, &oe))
     {
         lua_pushnil(L);
         return 1;
     }
 
-    lua_pushdecimal(L, om, oe);
+    pushdec(L, om, oe);
     return 1;
 }
 
@@ -725,13 +783,8 @@ static int decimal_create(lua_State* L)
         lua_pushvalue(L, 1);
         return 1;
     case LUA_TINTEGER:
-    {
-        int64_t om;
-        int oe;
-        reducewide(lua_tointeger64(L, 1, nullptr), 0, om, oe); // always fits
-        lua_pushdecimal(L, om, oe);
+        pushdec(L, lua_tointeger64(L, 1, nullptr), 0);
         return 1;
-    }
     case LUA_TNUMBER:
     {
         double v = lua_tonumber(L, 1);

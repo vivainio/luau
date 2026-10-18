@@ -73,8 +73,7 @@ int luaO_rawequalKey(const TKey* t1, const TValue* t2)
             return luai_numeq(nvalue(t1), nvalue(t2));
         case LUA_TINTEGER:
             return luai_inteq(lvalue(t1), lvalue(t2));
-        case LUA_TDECIMAL:
-            return luai_deceq(decmantissa(t1), decexponent(t1), decmantissa(t2), decexponent(t2));
+        // decimals are never table keys, so there is no case for them here
         case LUA_TVECTOR:
             return luai_veceq(vvalue(t1), vvalue(t2));
         case LUA_TBOOLEAN:

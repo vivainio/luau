@@ -2,6 +2,7 @@
 #pragma once
 
 #include "Luau/Compiler.h"
+#include "Luau/DecimalMantissa.h"
 
 #include "ValueTracking.h"
 
@@ -38,7 +39,7 @@ struct Constant
         int64_t valueInteger64;
         struct
         {
-            int64_t mantissa;
+            DecimalMantissa mantissa;
             int32_t exponent;
         } valueDecimal;
         float valueVectorf[4];

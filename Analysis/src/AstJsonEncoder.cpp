@@ -351,7 +351,9 @@ struct AstJsonEncoder : public AstVisitor
             "AstExprConstantDecimal",
             [&]()
             {
-                write("mantissa", node->mantissa);
+                char digits[48];
+                decimalMantissaToString(digits, node->mantissa);
+                write("mantissa", std::string_view(digits));
                 write("exponent", node->exponent);
             }
         );

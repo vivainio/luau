@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the same decimal cases through .NET System.Decimal (cases.cs) and through Luau (cases.luau)
 # and prints the lines that differ. The expected set of differences is in differences.expected;
-# every one of them is a consequence of the 64-bit mantissa or of how doubles are converted.
+# every one of them is a consequence of the 90-bit mantissa (27 digits always) or of how doubles are converted.
 #
 #   ./demos/decimal/dotnet/compare.sh            compare against differences.expected
 #   ./demos/decimal/dotnet/compare.sh --update   rewrite differences.expected

@@ -7,7 +7,7 @@ i - d                              0.5
 d * i                              3.0
 i * d                              3.0
 d / i                              0.75
-i / d                              1.333333333333333333
+i / d                              1.33333333333333333333333333
 d % i                              1.5
 i % d                              0.5
 the result is always a decimal     decimal

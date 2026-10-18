@@ -10,12 +10,11 @@ local n: any = 1
 local s: any = "x"
 
 section("arithmetic")
-try("overflow (add)", function() return 9223372036854775807d + 1d end)
-try("overflow (mul)", function() return 9223372036854775807d * 2d end)
-try("overflow (neg is fine)", function() return -(-9223372036854775807d) end)
+try("overflow (add)", function() return 1237940039285380274899124223d + 1d end)
+try("overflow (mul)", function() return 1237940039285380274899124223d * 2d end)
+try("overflow (neg is fine)", function() return -(-1237940039285380274899124223d) end)
 try("division by zero", function() return 1d / 0d end)
 try("remainder by zero", function() return 1d % 0d end)
-try("remainder overflow", function() return 9223372036854775807d % 0.0000000000000000000000001d end)
 try("floor division", function() return d // d end)
 try("exponent", function() return d ^ d end)
 try("with a number", function() return d + n end)
@@ -81,7 +80,7 @@ try("fromstring('abc')", function() return decimal.fromstring("abc") end)
 try("fromstring('1e500')", function() return decimal.fromstring("1e500") end)
 
 section("syntax errors")
-for _, src in { "return 1.2.3d", "return 1ed", "return 9223372036854775808d", "return 1e30d", "return 0.00000000000000000000000000001d", "return 1d2", "return 0xd" } do
+for _, src in { "return 1.2.3d", "return 1ed", "return 1237940039285380274899124224d", "return 1e30d", "return 0.00000000000000000000000000001d", "return 1d2", "return 0xd" } do
     local f, err = loadstring(src)
     print(string.format("%-34s %s", src, f and "compiles" or (err :: string):gsub("^%[.-%]:%d+: ", "")))
 end

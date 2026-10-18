@@ -29,7 +29,7 @@ create(0/0)                              nil
 create(math.huge)                        nil
 create(-math.huge)                       nil
 create(1e30) (too large)                 nil
-create(1e19) (too large)                 nil
+create(1e19) (too large)                 10000000000000000000
 create(1e-30) (rounds to zero)           0.0000000000000000000000000000
 
 == decimal.fromstring: accepted forms ==
@@ -68,16 +68,16 @@ fromstring('1e500')                      nil
 
 == more digits than fit are rounded half-even ==
 19 digits                                1234567890.123456789
-31 digits                                0.1234567890123456789
+31 digits                                0.1234567890123456789012345679
 beyond scale 28                          0.0000000000000000000000000000
 beyond scale 28, half                    0.0000000000000000000000000000
-too many integer digits                  nil
+too many integer digits                  99999999999999999999
 
 == decimal.tostring and tonumber ==
 tostring(0.1)                            0.1  ->  tonumber 0.10000000000000001
 tostring(1.50)                           1.50  ->  tonumber 1.5
 tostring(100)                            100  ->  tonumber 100
-tostring(0.3333333333333333333)          0.3333333333333333333  ->  tonumber 0.33333333333333331
+tostring(0.333333333333333333333333333)  0.333333333333333333333333333  ->  tonumber 0.33333333333333331
 tostring(12345.6789)                     12345.6789  ->  tonumber 12345.678900000001
 tostring(-0.001)                         -0.001  ->  tonumber -0.001
 tonumber(1000000d) == 1e6                true

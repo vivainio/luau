@@ -2,6 +2,7 @@
 #pragma once
 
 #include "Luau/Bytecode.h"
+#include "Luau/DecimalMantissa.h"
 #include "Luau/DenseHash.h"
 #include "Luau/StringUtils.h"
 
@@ -79,7 +80,7 @@ public:
     int32_t addConstantBoolean(bool value);
     int32_t addConstantNumber(double value);
     int32_t addConstantInteger(int64_t value);
-    int32_t addConstantDecimal(int64_t mantissa, int exponent);
+    int32_t addConstantDecimal(DecimalMantissa mantissa, int exponent);
     int32_t addConstantVectorf(float x, float y, float z, float w);
     int32_t addConstantVectord(double x, double y, double z, double w);
     int32_t addConstantString(StringRef value);
@@ -229,7 +230,7 @@ protected:
             int64_t valueInteger64;
             struct
             {
-                int64_t mantissa;
+                DecimalMantissa mantissa;
                 int32_t exponent;
             } valueDecimal;
             float valueVectorf[4];

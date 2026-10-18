@@ -665,10 +665,10 @@ static int loadsafe(
             case LBC_CONSTANT_DECIMAL:
             {
                 bool isNegative = read<uint8_t>(data, size, offset);
-                uint64_t magnitude = readVarInt64(data, size, offset);
-                bool isNegativeExp = read<uint8_t>(data, size, offset);
-                int exp = int(readVarInt(data, size, offset));
-                setdecvalue(&p->k[j], isNegative ? (int64_t)(~magnitude + 1) : (int64_t)magnitude, isNegativeExp ? -exp : exp);
+                uint64_t hi = readVarInt64(data, size, offset);
+                uint64_t lo = readVarInt64(data, size, offset);
+                int scale = int(readVarInt(data, size, offset));
+                setdecvalue(&p->k[j], decimalMantissaJoin(isNegative, hi, lo), -scale);
                 break;
             }
 

@@ -392,11 +392,11 @@ char* luai_int2str(char* buf, int64_t l)
     return &buf[(l < 0) ? (numDigits + 1) : numDigits];
 }
 
-char* luai_dec2str(char* buf, int64_t mantissa, int exponent)
+char* luai_dec2str(char* buf, DecimalMantissa mantissa, int exponent)
 {
     // decimal value is mantissa * 10^exponent; output is plain notation without an exponent
-    char digits[LUAI_MAXINT2STR];
-    char* end = luai_int2str(digits, mantissa);
+    char digits[48];
+    char* end = decimalMantissaToString(digits, mantissa);
     const char* d = digits;
 
     char* out = buf;

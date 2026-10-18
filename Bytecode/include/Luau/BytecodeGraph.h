@@ -167,7 +167,7 @@ struct BcVmConst
         uint32_t valueClassShape;
         struct
         {
-            int64_t mantissa;
+            DecimalMantissa mantissa;
             int32_t exponent;
         } valueDecimal;
     };

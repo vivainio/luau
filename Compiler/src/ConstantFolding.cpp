@@ -56,7 +56,7 @@ static bool constantsEqual(const Constant& la, const Constant& ra)
             return false;
 
         // decimals are equal if they are numerically equal, regardless of scale (1.50d == 1.5d)
-        int64_t lm = la.valueDecimal.mantissa, rm = ra.valueDecimal.mantissa;
+        DecimalMantissa lm = la.valueDecimal.mantissa, rm = ra.valueDecimal.mantissa;
         int le = la.valueDecimal.exponent, re = ra.valueDecimal.exponent;
 
         while (lm != 0 && lm % 10 == 0)

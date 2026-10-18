@@ -240,7 +240,7 @@ static LUAU_NOINLINE void luau_setupcci(lua_State* L, int nresults, StkId fun)
 #define DEFINE_DECIMAL_FAST(name, fn) \
     static LUAU_FORCEINLINE bool name(StkId ra, const TValue* rb, const TValue* rc) \
     { \
-        int64_t m; \
+        DecimalMantissa m; \
         int e; \
         if (!fn(decmantissa(rb), decexponent(rb), decmantissa(rc), decexponent(rc), &m, &e)) \
             return false; \

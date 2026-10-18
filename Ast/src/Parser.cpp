@@ -4014,11 +4014,11 @@ static ConstantNumberParseResult parseInteger64(int64_t& result, const char* dat
 
 // parses a decimal literal body (without the trailing 'd'): digits[.digits][(e|E)[+-]digits]
 // the result is exact and keeps its scale (1.50d has scale 2); the exponent is the negated scale and is in [-28, 0]
-static ConstantNumberParseResult parseDecimal(int64_t& mantissa, int& exponent, const char* data)
+static ConstantNumberParseResult parseDecimal(DecimalMantissa& mantissa, int& exponent, const char* data)
 {
-    const int kMaxScale = 28;
+    const unsigned __int128 maxMantissa = (unsigned __int128)kDecimalMaxMantissa;
 
-    uint64_t m = 0;
+    unsigned __int128 m = 0;
     long e = 0;
     bool any = false, dot = false;
 
@@ -4029,7 +4029,7 @@ static ConstantNumberParseResult parseDecimal(int64_t& mantissa, int& exponent, 
         {
             any = true;
             unsigned d = unsigned(*p - '0');
-            if (m > (uint64_t(INT64_MAX) - d) / 10)
+            if (m > (maxMantissa - d) / 10)
                 return ConstantNumberParseResult::IntOverflow;
 
             m = m * 10 + d;
@@ -4075,17 +4075,17 @@ static ConstantNumberParseResult parseDecimal(int64_t& mantissa, int& exponent, 
     // a positive exponent is an integer that is written in scientific notation; expand it
     while (e > 0)
     {
-        if (m > uint64_t(INT64_MAX) / 10)
+        if (m > maxMantissa / 10)
             return ConstantNumberParseResult::IntOverflow;
 
         m *= 10;
         e--;
     }
 
-    if (e < -kMaxScale)
+    if (e < -kDecimalMaxScale)
         return ConstantNumberParseResult::IntOverflow;
 
-    mantissa = int64_t(m);
+    mantissa = DecimalMantissa(m);
     exponent = int(e);
     return ConstantNumberParseResult::Ok;
 }
@@ -5218,7 +5218,7 @@ AstExpr* Parser::parseNumber()
     else if (scratchData.back() == 'd' && !(scratchData.size() > 1 && scratchData[0] == '0' && (scratchData[1] == 'x' || scratchData[1] == 'X')))
     {
         // decimal literal, e.g. 1.25d (note that 0x1d is a hexadecimal number and not a decimal)
-        int64_t mantissa = 0;
+        DecimalMantissa mantissa = 0;
         int exponent = 0;
         scratchData.pop_back();
         ConstantNumberParseResult result = parseDecimal(mantissa, exponent, scratchData.c_str());

@@ -5,6 +5,8 @@
 #include <math.h>
 #include <cstdint>
 
+#include "Luau/DecimalMantissa.h"
+
 #define luai_numadd(a, b) ((a) + (b))
 #define luai_numsub(a, b) ((a) - (b))
 #define luai_nummul(a, b) ((a) * (b))
@@ -130,29 +132,29 @@ inline double luai_lerpd(double a, double b, double t)
 
 LUAI_FUNC char* luai_num2str(char* buf, double n);
 LUAI_FUNC char* luai_int2str(char* buf, int64_t n);
-LUAI_FUNC char* luai_dec2str(char* buf, int64_t mantissa, int exponent);
+LUAI_FUNC char* luai_dec2str(char* buf, DecimalMantissa mantissa, int exponent);
 
-// decimals are stored as an int64 mantissa and an exponent in [-28, 0] (the negated scale), see ldeclib.cpp
+// decimals are stored as a signed 90-bit mantissa and an exponent in [-28, 0] (the negated scale), see ldeclib.cpp
 // the add, sub, mul and neg functions return false on overflow; the div and rem functions return one of the LUAI_DEC_ codes below
 #define LUAI_DEC_OK 0
 #define LUAI_DEC_OVERFLOW 1
 #define LUAI_DEC_DIVZERO 2
 
-LUAI_FUNC bool luai_decadd(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
-LUAI_FUNC bool luai_decsub(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
-LUAI_FUNC bool luai_decmul(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
-LUAI_FUNC bool luai_decneg(int64_t m, int e, int64_t* om, int* oe);
-LUAI_FUNC int luai_decdiv(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
-LUAI_FUNC int luai_decrem(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe);
-LUAI_FUNC int luai_deccmp(int64_t ma, int ea, int64_t mb, int eb); // <0, 0 or >0
+LUAI_FUNC bool luai_decadd(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe);
+LUAI_FUNC bool luai_decsub(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe);
+LUAI_FUNC bool luai_decmul(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe);
+LUAI_FUNC bool luai_decneg(DecimalMantissa m, int e, DecimalMantissa* om, int* oe);
+LUAI_FUNC int luai_decdiv(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe);
+LUAI_FUNC int luai_decrem(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe);
+LUAI_FUNC int luai_deccmp(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb); // <0, 0 or >0
 
 // fast paths used by the interpreter and by luaV_doarith: same-scale add and subtract, and multiplication whose scale stays in range,
 // are exact when the result fits in the mantissa. They return false for everything else (different scales, rounding, overflow) and the
-// caller falls back to the general functions above. The result is never INT64_MIN, since the mantissa is always in the symmetric range.
-static inline bool luai_decaddfast(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+// caller falls back to the general functions above.
+static inline bool luai_decaddfast(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe)
 {
-    int64_t r;
-    if (ea != eb || __builtin_add_overflow(ma, mb, &r) || r == INT64_MIN)
+    DecimalMantissa r = ma + mb; // both magnitudes are below 2^90, so this cannot overflow 128 bits
+    if (ea != eb || r > kDecimalMaxMantissa || r < -kDecimalMaxMantissa)
         return false;
 
     *om = r;
@@ -160,10 +162,10 @@ static inline bool luai_decaddfast(int64_t ma, int ea, int64_t mb, int eb, int64
     return true;
 }
 
-static inline bool luai_decsubfast(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+static inline bool luai_decsubfast(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe)
 {
-    int64_t r;
-    if (ea != eb || __builtin_sub_overflow(ma, mb, &r) || r == INT64_MIN)
+    DecimalMantissa r = ma - mb;
+    if (ea != eb || r > kDecimalMaxMantissa || r < -kDecimalMaxMantissa)
         return false;
 
     *om = r;
@@ -171,10 +173,10 @@ static inline bool luai_decsubfast(int64_t ma, int ea, int64_t mb, int eb, int64
     return true;
 }
 
-static inline bool luai_decmulfast(int64_t ma, int ea, int64_t mb, int eb, int64_t* om, int* oe)
+static inline bool luai_decmulfast(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalMantissa* om, int* oe)
 {
-    int64_t r;
-    if (ea + eb < -28 || __builtin_mul_overflow(ma, mb, &r) || r == INT64_MIN)
+    DecimalMantissa r;
+    if (ea + eb < -kDecimalMaxScale || __builtin_mul_overflow(ma, mb, &r) || r > kDecimalMaxMantissa || r < -kDecimalMaxMantissa)
         return false;
 
     *om = r;

@@ -40,10 +40,10 @@ decimal: round(2.665d, 2) half-even 2.66
 decimal: round(2.665d, 2, 'awayfromzero') 2.67
 
 == where decimals do NOT help ==
-1d / 3d (finite digits)            0.3333333333333333333
-1d / 3d * 3d                       1.000000000000000000
-(1d / 3d) * 3d == 1d               true
-1d / 3d is not exact either        true
+1d / 3d (finite digits)            0.333333333333333333333333333
+1d / 3d * 3d                       0.999999999999999999999999999
+(1d / 3d) * 3d == 1d               false
+1d / 3d is not exact either        false
 
 == converting from a double keeps the shortest digits ==
 decimal.create(0.1)                0.1

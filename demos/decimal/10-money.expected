@@ -33,9 +33,9 @@ naive 100 / 3 * 3 with doubles         100
 naive rounded thirds                   99.99
 
 == compound interest, rounded each month ==
-monthly rate                           0.004166666666666666667
+monthly rate                           0.0041666666666666666666666667
 after 12 months                        10511.64
-same without rounding                  10511.61897881733191
+same without rounding                  10511.61897881733189804873892
 the closed form needs a power          not available: decimal has no ^
 
 == currency conversion ==
