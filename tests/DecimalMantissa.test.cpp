@@ -97,6 +97,15 @@ TEST_CASE("portable_matches_native_reference")
         bool fits = !__builtin_mul_overflow(u, v, &product) && (product >> 90) == 0;
         DecimalMagnitude actual;
         CHECK(decimalMagnitudeMultiply(ma, mb, &actual) == fits);
+        DecimalMantissa signedA = decimalMantissaJoin((i & 1) != 0, uint64_t(u >> 64), uint64_t(u));
+        DecimalMantissa signedB = decimalMantissaJoin((i & 2) != 0, uint64_t(v >> 64), uint64_t(v));
+        DecimalMantissa signedResult;
+        CHECK(decimalMantissaMultiply(signedA, signedB, &signedResult) == fits);
+        if (fits)
+        {
+            DecimalMantissa expected = decimalMantissaJoin(((i & 1) != 0) != ((i & 2) != 0), uint64_t(product >> 64), uint64_t(product));
+            CHECK((signedResult == expected));
+        }
         if (fits)
         {
             CHECK(uint64_t(actual) == uint64_t(product));
