@@ -291,6 +291,18 @@ do
     assert(t.x == dec("9"))
 end
 
+-- table.find compares numerically
+do
+    local t = {dec("1.5"), dec("2.50"), dec("3")}
+    assert(table.find(t, dec("1.50")) == 1)
+    assert(table.find(t, dec("2.5")) == 2)
+    assert(table.find(t, dec("3.000")) == 3)
+    assert(table.find(t, dec("4")) == nil)
+    assert(table.find(t, dec("2.5"), 3) == nil)
+    assert(table.find({1, 2, 3}, dec("1")) == nil)
+    assert(table.find(t, 3) == nil)
+end
+
 -- decimals cannot be table keys
 do
     local t = {}

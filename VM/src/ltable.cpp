@@ -518,7 +518,22 @@ int luaH_rawfind(LuaTable* t, int startpos, StkId value)
     switch (ttype(value))
     {
     case LUA_TNIL:
-    case LUA_TDECIMAL: // not supported by table.find yet
+        break;
+    case LUA_TDECIMAL:
+        // decimals are equal if they are numerically equal, regardless of scale
+        for (int i = startpos - 1; i < t->sizearray; ++i)
+        {
+            const TValue* e = &t->array[i];
+
+            if (ttisnil(e))
+                break;
+
+            if (ttisdecimal(e) && luai_deceq(decmantissa(e), decexponent(e), decmantissa(value), decexponent(value)))
+            {
+                index = i + 1;
+                break;
+            }
+        }
         break;
     case LUA_TBOOLEAN:
         index = rawfindarray(t, startpos, bvalue(value), LUA_TBOOLEAN);

@@ -32,8 +32,11 @@ workaround: key by tostring              1
 note: tostring keeps the scale           false
 
 == table.find ==
-table.find(prices, 120d) (not supported yet) nil
-a loop with == works                     3
+table.find(prices, 120d)                 3
+table.find(prices, 120.000d) (numeric)   3
+table.find(prices, 3.1d) (scale ignored) 4
+table.find(prices, 4d)                   nil
+table.find(prices, 120) (a number)       nil
 
 == functions: arguments, returns, varargs, closures ==
 varargs sum                              6.6

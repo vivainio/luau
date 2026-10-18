@@ -81,16 +81,11 @@ end)())
 show("note: tostring keeps the scale", tostring(1.5d) == tostring(1.50d))
 
 section("table.find")
-show("table.find(prices, 120d) (not supported yet)", table.find(prices, 120d))
-local function indexOf(list: { decimal }, value: decimal): number?
-    for i, v in list do
-        if v == value then
-            return i
-        end
-    end
-    return nil
-end
-show("a loop with == works", indexOf(prices, 120.00d))
+show("table.find(prices, 120d)", table.find(prices, 120d))
+show("table.find(prices, 120.000d) (numeric)", table.find(prices, 120.000d))
+show("table.find(prices, 3.1d) (scale ignored)", table.find(prices, 3.1d))
+show("table.find(prices, 4d)", table.find(prices, 4d))
+show("table.find(prices, 120) (a number)", table.find(prices :: any, 120))
 
 section("functions: arguments, returns, varargs, closures")
 local function addAll(...: decimal): decimal
