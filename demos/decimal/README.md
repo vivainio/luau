@@ -19,6 +19,7 @@ implementation is required to produce. The demos are written to be read: open on
 | `11-containers` | tables, sorting, aggregation, functions, strings, library functions that refuse decimals |
 | `12-errors` | a catalog of every error message |
 | `13-typing` | the static types, checked with `luau-analyze`, with `-- ERROR` markers verified line by line |
+| `benchmark` | rough timings of decimal operations (not checked by `run.sh`, the numbers vary by machine) |
 | `dotnet/` | the same cases run through .NET `System.Decimal`, with the expected set of differences |
 
 ## Running
