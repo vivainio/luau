@@ -21,6 +21,7 @@ implementation is required to produce. The demos are written to be read: open on
 | `13-typing` | the static types, checked with `luau-analyze`, with `-- ERROR` markers verified line by line |
 | `benchmark` | timings of decimal operations; `run-benchmarks.sh` runs them with the baselines in the interpreter and with `--codegen` and prints the tables (not checked by `run.sh`, the numbers vary by machine) |
 | `baseline/` | what an embedder can do without a core type: a pure-Luau decimal and a host-registered userdata decimal, with benchmarks and a list of where they fall short |
+| `external/` | the real host-side alternative, the `mlua-decimal` crate (a Rust userdata on `rust_decimal`): speed, memory, what works, and its 75 .NET cases, via a small Rust harness |
 | `dotnet/` | the same cases run through .NET `System.Decimal`, with the expected set of differences |
 
 ## Running
