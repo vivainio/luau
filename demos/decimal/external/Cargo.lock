@@ -241,7 +241,7 @@ dependencies = [
 [[package]]
 name = "mlua-decimal"
 version = "0.1.0"
-source = "git+https://github.com/vivainio/mlua-decimal#5e88435b7a8cf18fd143ec6220b21348c90c3071"
+source = "git+https://github.com/vivainio/mlua-decimal#180c7875e4f1aa178b66a198305c011d5ae3cbf3"
 dependencies = [
  "mlua",
  "rust_decimal",

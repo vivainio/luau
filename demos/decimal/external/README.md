@@ -10,6 +10,6 @@ VM. This directory measures it and compares it with the core decimal type of thi
 |---|---|
 | `add.luau`, `memory.luau`, `ops.luau` | the same loops as `../benchmark.luau` and `../baseline/` |
 | `probe.luau` | which operations work on the userdata |
-| `cases.luau` | the 75 cases of `../dotnet/cases.luau`, translated (`1.5d` becomes `D"1.5"`), compared with .NET |
+| `cases.luau` | the 75 cases of `../dotnet/cases.luau`, translated (`1.5d` becomes `D"1.5"`, a double goes through `D.from_float`), compared with .NET: 6 lines differ with the crate after its pull request #1 (11 before) |
 
 The article that discusses the results is in the Luau decimal series: "A core type or a host library?".
