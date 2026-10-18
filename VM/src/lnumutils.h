@@ -184,8 +184,6 @@ static inline bool luai_decmulfast(DecimalMantissa ma, int ea, DecimalMantissa m
     return true;
 }
 
-// equality is numeric: 2.50 == 2.5
-#define luai_deceq(m1, e1, m2, e2) ((e1) == (e2) ? (m1) == (m2) : luai_deccmp((m1), (e1), (m2), (e2)) == 0)
 
 #define luai_str2num(s, p) strtod((s), (p))
 #define luai_str2long(s, p, base) strtoll((s), (p), base)

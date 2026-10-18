@@ -129,9 +129,14 @@ static inline Wide wideMulSmall(const Wide& a, uint32_t m)
 // divides by a nonzero 32-bit divisor, returns the remainder
 static inline Wide wideDivSmall(const Wide& a, uint32_t d, uint32_t* rem)
 {
-    Wide q;
+    Wide q = wideZero();
     uint64_t r = 0;
-    for (int i = kWideLimbs - 1; i >= 0; i--)
+
+    int top = kWideLimbs - 1;
+    while (top >= 0 && a.w[top] == 0)
+        top--;
+
+    for (int i = top; i >= 0; i--)
     {
         uint64_t cur = (r << 32) | a.w[i];
         q.w[i] = uint32_t(cur / d);

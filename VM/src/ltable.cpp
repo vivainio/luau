@@ -30,6 +30,7 @@
 #include "lgc.h"
 #include "lmem.h"
 #include "lnumutils.h"
+#include "ldecfast.h"
 #include "ltm.h"
 
 #include <string.h>
@@ -528,7 +529,7 @@ int luaH_rawfind(LuaTable* t, int startpos, StkId value)
             if (ttisnil(e))
                 break;
 
-            if (ttisdecimal(e) && luai_deceq(decmantissa(e), decexponent(e), decmantissa(value), decexponent(value)))
+            if (ttisdecimal(e) && luaO_deceq(e, value))
             {
                 index = i + 1;
                 break;

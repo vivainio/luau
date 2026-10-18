@@ -14,6 +14,7 @@
 #include "ldo.h"
 #include "lbuiltins.h"
 #include "lnumutils.h"
+#include "ldecfast.h"
 #include "lbytecode.h"
 
 #include <string.h>
@@ -235,22 +236,6 @@ static LUAU_NOINLINE void luau_setupcci(lua_State* L, int nresults, StkId fun)
     LUAU_ASSERT(ci->top <= L->stack_last);
     LUAU_ASSERT(ttisfunction(ci->func));
 }
-
-// Decimal fast paths (see luai_decaddfast): on success the result is stored and true is returned
-#define DEFINE_DECIMAL_FAST(name, fn) \
-    static LUAU_FORCEINLINE bool name(StkId ra, const TValue* rb, const TValue* rc) \
-    { \
-        DecimalMantissa m; \
-        int e; \
-        if (!fn(decmantissa(rb), decexponent(rb), decmantissa(rc), decexponent(rc), &m, &e)) \
-            return false; \
-        setdecvalue(ra, m, e); \
-        return true; \
-    }
-
-DEFINE_DECIMAL_FAST(decimalAddFast, luai_decaddfast)
-DEFINE_DECIMAL_FAST(decimalSubFast, luai_decsubfast)
-DEFINE_DECIMAL_FAST(decimalMulFast, luai_decmulfast)
 
 template<bool SingleStep>
 static void luau_execute(lua_State* L)
@@ -1474,7 +1459,7 @@ reentry:
                         VM_NEXT();
 
                     case LUA_TDECIMAL:
-                        pc += luai_deceq(decmantissa(ra), decexponent(ra), decmantissa(rb), decexponent(rb)) ? LUAU_INSN_D(insn) : 1;
+                        pc += luaO_deceq(ra, rb) ? LUAU_INSN_D(insn) : 1;
                         VM_ASSERT_PC(pc);
                         VM_NEXT();
 
@@ -1612,7 +1597,7 @@ reentry:
                         VM_NEXT();
 
                     case LUA_TDECIMAL:
-                        pc += !luai_deceq(decmantissa(ra), decexponent(ra), decmantissa(rb), decexponent(rb)) ? LUAU_INSN_D(insn) : 1;
+                        pc += !luaO_deceq(ra, rb) ? LUAU_INSN_D(insn) : 1;
                         VM_ASSERT_PC(pc);
                         VM_NEXT();
 
@@ -1654,9 +1639,9 @@ reentry:
                     VM_NEXT();
                 }
                 // fast-path: decimals with the same scale
-                else if (ttisdecimal(ra) && ttisdecimal(rb) && decexponent(ra) == decexponent(rb))
+                else if (ttisdecimal(ra) && ttisdecimal(rb) && luaO_decsamescale(ra, rb))
                 {
-                    pc += decmantissa(ra) <= decmantissa(rb) ? LUAU_INSN_D(insn) : 1;
+                    pc += luaO_deccmpsame(ra, rb) <= 0 ? LUAU_INSN_D(insn) : 1;
                     VM_ASSERT_PC(pc);
                     VM_NEXT();
                 }
@@ -1694,9 +1679,9 @@ reentry:
                     VM_NEXT();
                 }
                 // fast-path: decimals with the same scale
-                else if (ttisdecimal(ra) && ttisdecimal(rb) && decexponent(ra) == decexponent(rb))
+                else if (ttisdecimal(ra) && ttisdecimal(rb) && luaO_decsamescale(ra, rb))
                 {
-                    pc += !(decmantissa(ra) <= decmantissa(rb)) ? LUAU_INSN_D(insn) : 1;
+                    pc += !(luaO_deccmpsame(ra, rb) <= 0) ? LUAU_INSN_D(insn) : 1;
                     VM_ASSERT_PC(pc);
                     VM_NEXT();
                 }
@@ -1734,9 +1719,9 @@ reentry:
                     VM_NEXT();
                 }
                 // fast-path: decimals with the same scale
-                else if (ttisdecimal(ra) && ttisdecimal(rb) && decexponent(ra) == decexponent(rb))
+                else if (ttisdecimal(ra) && ttisdecimal(rb) && luaO_decsamescale(ra, rb))
                 {
-                    pc += decmantissa(ra) < decmantissa(rb) ? LUAU_INSN_D(insn) : 1;
+                    pc += luaO_deccmpsame(ra, rb) < 0 ? LUAU_INSN_D(insn) : 1;
                     VM_ASSERT_PC(pc);
                     VM_NEXT();
                 }
@@ -1774,9 +1759,9 @@ reentry:
                     VM_NEXT();
                 }
                 // fast-path: decimals with the same scale
-                else if (ttisdecimal(ra) && ttisdecimal(rb) && decexponent(ra) == decexponent(rb))
+                else if (ttisdecimal(ra) && ttisdecimal(rb) && luaO_decsamescale(ra, rb))
                 {
-                    pc += !(decmantissa(ra) < decmantissa(rb)) ? LUAU_INSN_D(insn) : 1;
+                    pc += !(luaO_deccmpsame(ra, rb) < 0) ? LUAU_INSN_D(insn) : 1;
                     VM_ASSERT_PC(pc);
                     VM_NEXT();
                 }
@@ -1818,7 +1803,7 @@ reentry:
                     setvvalue(L, ra, vb[0] + vc[0], vb[1] + vc[1], vb[2] + vc[2], vb[3] + vc[3]);
                     VM_NEXT();
                 }
-                else if (ttisdecimal(rb) && ttisdecimal(rc) && decimalAddFast(ra, rb, rc))
+                else if (ttisdecimal(rb) && ttisdecimal(rc) && luaO_decaddsubfast(ra, rb, rc, false))
                 {
                     VM_NEXT();
                 }
@@ -1868,7 +1853,7 @@ reentry:
                     setvvalue(L, ra, vb[0] - vc[0], vb[1] - vc[1], vb[2] - vc[2], vb[3] - vc[3]);
                     VM_NEXT();
                 }
-                else if (ttisdecimal(rb) && ttisdecimal(rc) && decimalSubFast(ra, rb, rc))
+                else if (ttisdecimal(rb) && ttisdecimal(rc) && luaO_decaddsubfast(ra, rb, rc, true))
                 {
                     VM_NEXT();
                 }
@@ -1911,7 +1896,7 @@ reentry:
                     setnvalue(ra, nvalue(rb) * nvalue(rc));
                     VM_NEXT();
                 }
-                else if (ttisdecimal(rb) && ttisdecimal(rc) && decimalMulFast(ra, rb, rc))
+                else if (ttisdecimal(rb) && ttisdecimal(rc) && luaO_decmulfast(ra, rb, rc))
                 {
                     VM_NEXT();
                 }

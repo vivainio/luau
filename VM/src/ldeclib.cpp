@@ -82,6 +82,10 @@ static bool reduce(Wide& mag, int& e)
 {
     static const Wide maxm = maxMantissaWide();
 
+    // the common case: already in range
+    if (e <= 0 && e >= -kDecimalMaxScale && wideCmp(mag, maxm) <= 0)
+        return true;
+
     if (wideIsZero(mag))
     {
         e = e > 0 ? 0 : (e < -kDecimalMaxScale ? -kDecimalMaxScale : e);
@@ -122,32 +126,31 @@ static bool reduce(Wide& mag, int& e)
     }
 }
 
-// removes trailing zeros while the scale is above the preferred one
+// removes trailing zeros while the scale is above the preferred one; zeros come off in chunks, so a quotient with many of them (1/8 has
+// 24) needs a handful of short divisions instead of one per digit
 static void stripZeros(Wide& mag, int& e, int preferredScale)
 {
-    int most = -e - preferredScale;
-    if (most <= 0 || wideIsZero(mag))
+    static const uint32_t pow10small[10] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
+
+    int allow = -e - preferredScale;
+    if (allow <= 0 || wideIsZero(mag))
         return;
 
-    // the largest t in [0, most] for which mag is divisible by 10^t; divisibility is monotonic in t
-    int lo = 0, hi = most;
-    while (lo < hi)
+    // 9, 4, 2 and 1 digit chunks are enough to take off any number of zeros below 18
+    const int chunks[4] = {9, 4, 2, 1};
+    for (int chunk : chunks)
     {
-        int mid = (lo + hi + 1) / 2;
-        Wide q, r;
-        wideDivMod(mag, widePow10(mid), &q, &r);
-        if (wideIsZero(r))
-            lo = mid;
-        else
-            hi = mid - 1;
-    }
+        while (allow >= chunk)
+        {
+            uint32_t rem;
+            Wide q = wideDivSmall(mag, pow10small[chunk], &rem);
+            if (rem != 0)
+                break;
 
-    if (lo > 0)
-    {
-        Wide q, r;
-        wideDivMod(mag, widePow10(lo), &q, &r);
-        mag = q;
-        e += lo;
+            mag = q;
+            e += chunk;
+            allow -= chunk;
+        }
     }
 }
 
@@ -235,6 +238,11 @@ int luai_decdiv(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalM
     }
 
     static const Wide maxm = maxMantissaWide();
+    static const Wide maxDiv10 = []
+    {
+        uint32_t rem;
+        return wideDivSmall(maxMantissaWide(), 10, &rem);
+    }();
 
     int na = wideDigits(a.mag);
     int nb = wideDigits(b.mag);
@@ -264,7 +272,8 @@ int luai_decdiv(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalM
         return wideCmp(q, maxm) <= 0;
     };
 
-    int k = 28 - (na - nb);
+    // aim for 27 digits, which fit unless the quotient starts with a high digit
+    int k = 27 - (na - nb);
     k = k < kmin ? kmin : (k > kmax ? kmax : k);
 
     Wide q;
@@ -275,7 +284,8 @@ int luai_decdiv(DecimalMantissa ma, int ea, DecimalMantissa mb, int eb, DecimalM
         k--;
     }
 
-    while (k < kmax)
+    // a quotient above a tenth of the largest mantissa cannot fit one scale finer (it grows about tenfold), so only try if it is small enough
+    while (k < kmax && wideCmp(q, maxDiv10) <= 0)
     {
         Wide next;
         if (!quotient(k + 1, &next))

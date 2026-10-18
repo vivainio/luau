@@ -11,6 +11,7 @@
 #include "lgc.h"
 #include "ldo.h"
 #include "lnumutils.h"
+#include "ldecfast.h"
 
 #include <string.h>
 
@@ -444,10 +445,13 @@ int luaV_lessthan(lua_State* L, const TValue* l, const TValue* r)
 {
     if (LUAU_UNLIKELY(ttisdecimal(l) || ttisdecimal(r)))
     {
+        if (ttisdecimal(l) && ttisdecimal(r) && luaO_decsamescale(l, r))
+            return luaO_deccmpsame(l, r) < 0;
+
         DecimalMantissa ml, mr;
         int el, er;
         if (decimalOperand(l, &ml, &el) && decimalOperand(r, &mr, &er))
-            return el == er ? ml < mr : luai_deccmp(ml, el, mr, er) < 0;
+            return luai_deccmp(ml, el, mr, er) < 0;
     }
 
     if (LUAU_UNLIKELY(ttype(l) != ttype(r)))
@@ -466,10 +470,13 @@ int luaV_lessequal(lua_State* L, const TValue* l, const TValue* r)
 {
     if (LUAU_UNLIKELY(ttisdecimal(l) || ttisdecimal(r)))
     {
+        if (ttisdecimal(l) && ttisdecimal(r) && luaO_decsamescale(l, r))
+            return luaO_deccmpsame(l, r) <= 0;
+
         DecimalMantissa ml, mr;
         int el, er;
         if (decimalOperand(l, &ml, &el) && decimalOperand(r, &mr, &er))
-            return el == er ? ml <= mr : luai_deccmp(ml, el, mr, er) <= 0;
+            return luai_deccmp(ml, el, mr, er) <= 0;
     }
 
     int res;
@@ -501,7 +508,7 @@ int luaV_equalval(lua_State* L, const TValue* t1, const TValue* t2)
     case LUA_TINTEGER:
         return luai_inteq(lvalue(t1), lvalue(t2));
     case LUA_TDECIMAL:
-        return luai_deceq(decmantissa(t1), decexponent(t1), decmantissa(t2), decexponent(t2));
+        return luaO_deceq(t1, t2);
     case LUA_TVECTOR:
         return luai_veceq(vvalue(t1), vvalue(t2));
     case LUA_TBOOLEAN:
@@ -612,6 +619,14 @@ void luaV_doarithimpl(lua_State* L, StkId ra, const TValue* rb, const TValue* rc
     // there is no implicit conversion from or to numbers
     if (LUAU_UNLIKELY(ttisdecimal(rb) || ttisdecimal(rc)))
     {
+        // the common case: two decimals with the same scale and an exact result
+        if (ttisdecimal(rb) && ttisdecimal(rc))
+        {
+            if ((op == TM_ADD && luaO_decaddsubfast(ra, rb, rc, false)) || (op == TM_SUB && luaO_decaddsubfast(ra, rb, rc, true)) ||
+                (op == TM_MUL && luaO_decmulfast(ra, rb, rc)))
+                return;
+        }
+
         DecimalMantissa mb, mc, m = 0;
         int eb, ec, e = 0;
 
@@ -623,13 +638,13 @@ void luaV_doarithimpl(lua_State* L, StkId ra, const TValue* rb, const TValue* rc
             switch (op)
             {
             case TM_ADD:
-                status = luai_decaddfast(mb, eb, mc, ec, &m, &e) || luai_decadd(mb, eb, mc, ec, &m, &e) ? LUAI_DEC_OK : LUAI_DEC_OVERFLOW;
+                status = luai_decadd(mb, eb, mc, ec, &m, &e) ? LUAI_DEC_OK : LUAI_DEC_OVERFLOW;
                 break;
             case TM_SUB:
-                status = luai_decsubfast(mb, eb, mc, ec, &m, &e) || luai_decsub(mb, eb, mc, ec, &m, &e) ? LUAI_DEC_OK : LUAI_DEC_OVERFLOW;
+                status = luai_decsub(mb, eb, mc, ec, &m, &e) ? LUAI_DEC_OK : LUAI_DEC_OVERFLOW;
                 break;
             case TM_MUL:
-                status = luai_decmulfast(mb, eb, mc, ec, &m, &e) || luai_decmul(mb, eb, mc, ec, &m, &e) ? LUAI_DEC_OK : LUAI_DEC_OVERFLOW;
+                status = luai_decmul(mb, eb, mc, ec, &m, &e) ? LUAI_DEC_OK : LUAI_DEC_OVERFLOW;
                 break;
             case TM_DIV:
                 status = luai_decdiv(mb, eb, mc, ec, &m, &e);

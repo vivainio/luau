@@ -14,6 +14,7 @@
 #endif
 
 typedef __int128 DecimalMantissa;
+typedef unsigned __int128 DecimalMagnitude;
 
 // 2^90 - 1, the largest magnitude of a mantissa
 static const DecimalMantissa kDecimalMaxMantissa = (DecimalMantissa(1) << 90) - 1;
